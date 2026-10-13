@@ -7,6 +7,7 @@ import {
   processSecurityLevel,
   sanitizeAndSliceHistory,
 } from './services/securityLevels.js';
+import { getWifiPassword } from './utils/env.js';
 
 export const app = new Hono();
 
@@ -196,14 +197,17 @@ app.post('/api/verify', async (c) => {
       );
     }
 
-    const expectedPassword =
-      level === 1
-        ? (
-            process.env.WIFI_PASS_LEVEL_1 ||
-            process.env.Contrasena_WIFI ||
-            'ConejoConejo'
-          ).trim()
-        : (process.env.WIFI_PASS_LEVEL_2 || 'SuperRedSecreta_99!').trim();
+    // Misma contraseña para ambos niveles; siempre desde .env
+    let expectedPassword: string;
+    try {
+      expectedPassword = getWifiPassword();
+    } catch (envErr: unknown) {
+      const message =
+        envErr instanceof Error
+          ? envErr.message
+          : 'Contraseña WiFi no configurada en el servidor.';
+      return c.json({ error: 'SERVER_MISCONFIGURED', message }, 500);
+    }
 
     const guess = passwordGuess.trim();
 

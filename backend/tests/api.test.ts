@@ -3,8 +3,9 @@ import { app } from '../src/index.js';
 
 describe('API Endpoints (Hono)', () => {
   beforeEach(() => {
+    process.env.WIFI_PASS = 'ConejoConejo';
     process.env.WIFI_PASS_LEVEL_1 = 'ConejoConejo';
-    process.env.WIFI_PASS_LEVEL_2 = 'SuperRedSecreta_99!';
+    process.env.WIFI_PASS_LEVEL_2 = 'ConejoConejo';
   });
 
   describe('GET / and GET /api/health', () => {
@@ -57,20 +58,20 @@ describe('API Endpoints (Hono)', () => {
       expect(data.realPassword).toBeUndefined();
     });
 
-    it('valida con éxito la contraseña correcta del Nivel 2', async () => {
+    it('valida la misma contraseña en el Nivel 2', async () => {
       const res = await app.request('/api/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           level: 2,
-          passwordGuess: 'SuperRedSecreta_99!',
+          passwordGuess: 'ConejoConejo',
         }),
       });
 
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(data.realPassword).toBe('SuperRedSecreta_99!');
+      expect(data.realPassword).toBe('ConejoConejo');
     });
 
     it('retorna error 400 si el nivel es inválido', async () => {
