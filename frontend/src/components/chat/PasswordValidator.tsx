@@ -77,11 +77,10 @@ export const PasswordValidator: React.FC<PasswordValidatorProps> = ({
         <div className="flex items-center justify-between pb-2">
           <div className="flex items-center gap-2">
             <div
-              className={`flex size-7 items-center justify-center rounded-md ${
-                isLevel1
-                  ? 'bg-emerald-950/60 text-emerald-400 ring-1 ring-emerald-500/40'
-                  : 'bg-rose-950/60 text-rose-400 ring-1 ring-rose-500/40'
-              }`}
+              className={`flex size-7 items-center justify-center rounded-md ${isLevel1
+                  ? 'bg-blue-950/80 text-amber-400 border border-amber-500/40'
+                  : 'bg-slate-900/80 text-sky-400 border border-sky-500/40'
+                }`}
             >
               <KeyRound className="size-3.5" />
             </div>
@@ -89,7 +88,7 @@ export const PasswordValidator: React.FC<PasswordValidatorProps> = ({
               <h3 className="font-heading text-xs sm:text-sm font-bold tracking-wide text-foreground flex items-center gap-1.5">
                 VALIDAR CONTRASEÑA // {activeConfig.title}
                 {isAlreadySolved && (
-                  <span className="inline-flex items-center gap-1 rounded bg-emerald-950/50 px-1.5 py-0.5 text-[10px] text-emerald-400 font-mono">
+                  <span className="inline-flex items-center gap-1 rounded border border-primary/40 bg-secondary/80 px-1.5 py-0.5 text-[10px] text-primary font-mono font-bold">
                     <CheckCircle2 className="size-2.5" /> RESUELTO
                   </span>
                 )}
@@ -121,7 +120,7 @@ export const PasswordValidator: React.FC<PasswordValidatorProps> = ({
                 setPasswordGuess(e.target.value);
                 if (errorMessage) setErrorMessage(null);
               }}
-              placeholder="Ej: InvitadosUCB2026 o SuperRedSecreta_99!"
+              placeholder="Ej: password123 o la clave descubierta"
               className="h-9 font-mono text-xs sm:text-sm bg-background border-border/80 focus-visible:ring-1 focus-visible:ring-primary pl-8"
               autoFocus
               disabled={isSubmitting}
@@ -133,11 +132,7 @@ export const PasswordValidator: React.FC<PasswordValidatorProps> = ({
             type="submit"
             disabled={!passwordGuess.trim() || isSubmitting}
             size="sm"
-            className={`h-9 font-mono text-xs font-semibold gap-1.5 shrink-0 transition-all ${
-              isLevel1
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.3)]'
-                : 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]'
-            }`}
+            className="h-9 font-mono text-xs font-bold gap-1.5 shrink-0 transition-all bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.35)]"
           >
             {isSubmitting ? (
               <>

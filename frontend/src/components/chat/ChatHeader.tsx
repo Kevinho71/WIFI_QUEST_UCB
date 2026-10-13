@@ -28,7 +28,6 @@ interface ChatHeaderProps {
   solvedLevels: Record<SecurityLevel, boolean>;
   isValidatorOpen: boolean;
   onToggleValidator: () => void;
-  lastProvider: string | null;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -38,7 +37,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   solvedLevels,
   isValidatorOpen,
   onToggleValidator,
-  lastProvider,
 }) => {
   const [showResetDialog, setShowResetDialog] = React.useState(false);
   const activeConfig = LEVEL_CONFIGS[currentLevel];
@@ -58,8 +56,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <div
             className={`flex size-8 shrink-0 items-center justify-center rounded-lg border font-mono font-bold transition-all ${
               isLevel1
-                ? 'border-emerald-500/40 bg-emerald-950/40 text-emerald-400 shadow-[0_0_12px_rgba(34,197,94,0.25)]'
-                : 'border-rose-500/40 bg-rose-950/40 text-rose-400 shadow-[0_0_12px_rgba(239,68,68,0.25)]'
+                ? 'border-amber-500/50 bg-blue-950/70 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                : 'border-sky-500/50 bg-slate-900/80 text-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
             }`}
           >
             <Terminal className="size-4" />
@@ -69,21 +67,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <span className="font-heading text-base font-bold tracking-wider text-foreground">
                 WIFI QUEST
               </span>
-              <span className="rounded bg-muted px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
+              <span className="rounded border border-primary/30 bg-secondary/80 px-1.5 py-0.2 text-[10px] font-mono text-primary font-semibold">
                 CTF v1.0
               </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
               <span className="inline-block size-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>SISTEMA ONLINE</span>
-              {lastProvider && (
-                <>
-                  <span className="text-muted-foreground/40">•</span>
-                  <span className="truncate max-w-[110px] text-[10px] text-muted-foreground">
-                    {lastProvider}
-                  </span>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -97,17 +87,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             onClick={onToggleValidator}
             className={`relative gap-1.5 font-mono text-xs transition-all ${
               isValidatorOpen
-                ? isLevel1
-                  ? 'border-emerald-500 bg-emerald-950/30 text-emerald-300'
-                  : 'border-rose-500 bg-rose-950/30 text-rose-300'
-                : 'border-border/80 hover:bg-muted/70'
+                ? 'border-amber-500 bg-secondary text-amber-400 ring-1 ring-amber-500/30'
+                : 'border-border/80 hover:bg-secondary/70 hover:text-amber-400'
             }`}
           >
             <KeyRound className="size-3.5" data-icon="inline-start" />
             <span className="hidden sm:inline">Validar Clave</span>
             <span className="sm:hidden">Clave</span>
             {solvedLevels[currentLevel] && (
-              <span className="flex size-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(34,197,94,0.8)]" />
+              <span className="flex size-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
             )}
           </Button>
 
@@ -127,23 +115,23 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       {/* Selector de Nivel (Mobile First Tabs) */}
       <div className="mx-auto flex max-w-4xl border-t border-border/40 px-2 py-1.5 sm:px-4">
-        <div className="grid w-full grid-cols-2 gap-1.5 rounded-lg bg-muted/40 p-1">
+        <div className="grid w-full grid-cols-2 gap-1.5 rounded-lg bg-secondary/40 p-1">
           {/* Nivel 1 */}
           <button
             type="button"
             onClick={() => onSelectLevel(1)}
             className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all ${
               isLevel1
-                ? 'bg-background font-semibold text-emerald-400 shadow-sm ring-1 ring-emerald-500/30'
-                : 'text-muted-foreground hover:bg-background/40 hover:text-foreground'
+                ? 'bg-card font-semibold text-amber-400 shadow-sm ring-1 ring-amber-500/40'
+                : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
             }`}
           >
             <Bot className="size-3.5 shrink-0" />
-            <span className="truncate">Nivel 1: Becario TI</span>
+            <span className="truncate">Nivel 1: Pasante TI</span>
             {solvedLevels[1] ? (
-              <CheckCircle2 className="size-3 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="size-3 shrink-0 text-amber-400" />
             ) : (
-              <Badge variant="outline" className="ml-0.5 border-emerald-500/30 text-[9px] text-emerald-400 px-1 py-0">
+              <Badge variant="outline" className="ml-0.5 border-amber-500/40 text-[9px] text-amber-400 px-1 py-0">
                 Fácil
               </Badge>
             )}
@@ -155,16 +143,16 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             onClick={() => onSelectLevel(2)}
             className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all ${
               !isLevel1
-                ? 'bg-background font-semibold text-rose-400 shadow-sm ring-1 ring-rose-500/30'
-                : 'text-muted-foreground hover:bg-background/40 hover:text-foreground'
+                ? 'bg-card font-semibold text-sky-400 shadow-sm ring-1 ring-sky-500/40'
+                : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
             }`}
           >
             <ShieldAlert className="size-3.5 shrink-0" />
-            <span className="truncate">Nivel 2: Firewall AI</span>
+            <span className="truncate">Nivel 2: Firewall Centinela</span>
             {solvedLevels[2] ? (
-              <CheckCircle2 className="size-3 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="size-3 shrink-0 text-sky-400" />
             ) : (
-              <Badge variant="outline" className="ml-0.5 border-rose-500/30 text-[9px] text-rose-400 px-1 py-0">
+              <Badge variant="outline" className="ml-0.5 border-sky-500/40 text-[9px] text-sky-400 px-1 py-0">
                 Blindado
               </Badge>
             )}

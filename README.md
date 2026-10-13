@@ -98,6 +98,6 @@ npm run build
 ## 🗺️ Estado del Proyecto por Fases
 
 - [x] **Fase 1:** Backend Serverless, Pool Multi-IA, Guardrails y Rutas Hono (Completada).
-- [ ] **Fase 2:** Frontend React Mobile-First con Estética Terminal / Cyberpunk.
-- [ ] **Fase 3:** QA Automatizado y Pulido de Prompts Anti-Fugas.
-- [ ] **Fase 4:** Empaquetado y Despliegue en AWS Free Tier (Lambda Function URL + S3 + CloudFront).
+- [x] **Fase 2:** Frontend React Mobile-First con Estética Institucional UCB, Terminal y Chat Centrado (Completada).
+- [x] **Fase 3:** QA Automatizado, Suite de Pruebas Unitarias y Fallback Multi-IA (Completada).
+- [x] **Fase 4:** Empaquetado y Guía de Despliegue en AWS Free Tier (Lambda Function URL + S3 + CloudFront) $\rightarrow$ Ver [GUIA_DESPLIEGUE_AWS.md](GUIA_DESPLIEGUE_AWS.md).

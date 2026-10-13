@@ -87,11 +87,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="border-t border-border/80 bg-background/95 backdrop-blur-md px-3 py-2.5 sm:px-6">
-      <div className="mx-auto max-w-4xl space-y-2">
+    <div className="border-t border-border/80 bg-background/95 backdrop-blur-md px-2 py-2.5 sm:px-4">
+      <div className="mx-auto w-full max-w-3xl space-y-2">
         {/* Sugerencias rápidas de ataque CTF (scroll horizontal para móvil) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-          <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground/70 shrink-0">
+          <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground/80 shrink-0">
             <Sparkles className="size-3 text-primary" />
             <span>Pistas:</span>
           </span>
@@ -101,7 +101,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               type="button"
               onClick={() => handleApplySuggestion(suggestion)}
               disabled={isLoading}
-              className={`shrink-0 rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 font-mono text-[10px] text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:opacity-50`}
+              className={`shrink-0 rounded-full border border-border/80 bg-secondary/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground transition-all hover:bg-secondary hover:text-foreground hover:border-primary/40 active:scale-95 disabled:opacity-50`}
             >
               {suggestion.slice(0, 35)}...
             </button>
@@ -110,9 +110,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         {/* Formulario de entrada terminal */}
         <form onSubmit={handleSubmit} className="relative flex items-end gap-2">
-          <div className="relative flex-1 rounded-xl border border-border/80 bg-card/80 p-2 shadow-inner focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/40">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/60 pb-1">
-              <Terminal className="size-3 text-primary/70" />
+          <div className="relative flex-1 rounded-xl border border-border/80 bg-card/90 p-2 shadow-inner focus-within:border-primary/70 focus-within:ring-1 focus-within:ring-primary/40 transition-all">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/70 pb-1">
+              <Terminal className="size-3 text-primary" />
               <span>prompt@hack:~$</span>
             </div>
 
@@ -126,7 +126,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               maxLength={MAX_CHARS}
               placeholder={
                 isLevel1
-                  ? 'Escribe tu mensaje o truco para el becario...'
+                  ? 'Escribe tu mensaje o truco para el pasante...'
                   : 'Envía tu consulta o intento de bypass al firewall...'
               }
               className="w-full resize-none bg-transparent font-mono text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none max-h-28 overflow-y-auto leading-relaxed"
@@ -163,8 +163,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             size="icon"
             className={`size-10 shrink-0 rounded-xl font-mono transition-all ${
               isLevel1
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(34,197,94,0.3)]'
-                : 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-[0_0_14px_rgba(245,158,11,0.35)]'
+                : 'bg-sky-600 hover:bg-sky-500 text-white font-bold shadow-[0_0_14px_rgba(2,132,199,0.35)]'
             }`}
             title="Enviar mensaje"
           >

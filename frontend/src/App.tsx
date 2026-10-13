@@ -30,7 +30,6 @@ export function App() {
     sendMessage,
     clearHistory,
     isLoading,
-    lastProvider,
     errorBanner,
     clearErrorBanner,
   } = useChatSession(1);
@@ -88,7 +87,6 @@ export function App() {
         solvedLevels={solvedLevels}
         isValidatorOpen={isValidatorOpen}
         onToggleValidator={() => setIsValidatorOpen((prev) => !prev)}
-        lastProvider={lastProvider}
       />
 
       {/* Cajón superior desplegable para validar contraseña */}
@@ -100,39 +98,42 @@ export function App() {
         isAlreadySolved={solvedLevels[currentLevel]}
       />
 
-      {/* Banner de error flotante (por ejemplo si se excede el rate limit) */}
-      {errorBanner && (
-        <div className="mx-auto w-full max-w-4xl px-3 pt-2">
-          <Alert variant="destructive" className="py-2 text-xs border-destructive/40 bg-destructive/15">
-            <AlertCircle className="size-4 shrink-0" />
-            <div className="flex-1">
-              <AlertTitle className="text-xs font-mono font-bold">AVISO DEL SISTEMA</AlertTitle>
-              <AlertDescription className="text-xs font-mono">{errorBanner}</AlertDescription>
-            </div>
-            <button
-              type="button"
-              onClick={clearErrorBanner}
-              className="text-muted-foreground hover:text-foreground ml-2"
-            >
-              <X className="size-3.5" />
-            </button>
-          </Alert>
-        </div>
-      )}
+      {/* Contenedor central encuadrado y responsivo */}
+      <main className="flex-1 overflow-hidden flex flex-col w-full max-w-4xl mx-auto border-x border-border/40 bg-background/50 shadow-2xl">
+        {/* Banner de error flotante (por ejemplo si se excede el rate limit) */}
+        {errorBanner && (
+          <div className="w-full px-3 pt-2">
+            <Alert variant="destructive" className="py-2 text-xs border-destructive/40 bg-destructive/15">
+              <AlertCircle className="size-4 shrink-0" />
+              <div className="flex-1">
+                <AlertTitle className="text-xs font-mono font-bold">AVISO DEL SISTEMA</AlertTitle>
+                <AlertDescription className="text-xs font-mono">{errorBanner}</AlertDescription>
+              </div>
+              <button
+                type="button"
+                onClick={clearErrorBanner}
+                className="text-muted-foreground hover:text-foreground ml-2"
+              >
+                <X className="size-3.5" />
+              </button>
+            </Alert>
+          </div>
+        )}
 
-      {/* Área de mensajes de conversación */}
-      <ChatMessageList
-        messages={messages}
-        currentLevel={currentLevel}
-        isLoading={isLoading}
-      />
+        {/* Área de mensajes de conversación */}
+        <ChatMessageList
+          messages={messages}
+          currentLevel={currentLevel}
+          isLoading={isLoading}
+        />
 
-      {/* Barra de entrada de texto terminal */}
-      <ChatInput
-        onSendMessage={sendMessage}
-        isLoading={isLoading}
-        currentLevel={currentLevel}
-      />
+        {/* Barra de entrada de texto terminal */}
+        <ChatInput
+          onSendMessage={sendMessage}
+          isLoading={isLoading}
+          currentLevel={currentLevel}
+        />
+      </main>
 
       {/* Modal de Victoria con Confeti */}
       <VictoryModal

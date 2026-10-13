@@ -30,7 +30,7 @@ export interface AIProviderConfig {
 export const providers: AIProviderConfig[] = [
   {
     name: 'Groq',
-    getModel: () => process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+    getModel: () => process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
     getUrl: () => 'https://api.groq.com/openai/v1/chat/completions',
     getHeaders: () => ({
       Authorization: `Bearer ${process.env.GROQ_API_KEY || ''}`,
@@ -108,7 +108,7 @@ async function callProvider(
             content: m.content,
           })),
         ],
-        max_tokens: 220,
+        max_tokens: 350,
         temperature: 0.6,
       }
     : {
@@ -121,7 +121,7 @@ async function callProvider(
           })),
         ],
         temperature: 0.6,
-        max_tokens: 220,
+        max_tokens: 350,
       };
 
   const response = await fetch(provider.getUrl(), {
@@ -131,7 +131,7 @@ async function callProvider(
       ...provider.getHeaders(),
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(4500),
+    signal: AbortSignal.timeout(6500),
   });
 
   if (!response.ok) {
