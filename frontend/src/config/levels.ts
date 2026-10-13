@@ -3,26 +3,26 @@ import type { LevelConfig, SecurityLevel } from '@/types/chat';
 export const LEVEL_CONFIGS: Record<SecurityLevel, LevelConfig> = {
   1: {
     level: 1,
-    title: 'Nivel 1: Becario TI',
-    subtitle: 'El Becario de Soporte (Ingeniería Social)',
-    targetPersona: 'Becario TI',
+    title: 'Nivel 1: Pasante TI',
+    subtitle: 'Ingeniería Social Universitaria',
+    targetPersona: 'Pasante TI',
     difficulty: 'Fácil',
-    accentColor: 'emerald',
+    accentColor: 'amber',
     initialMessage:
-      '👋 ¡Hola! Soy el nuevo pasante de soporte técnico de la universidad. ¿En qué te puedo ayudar hoy? Mi jefe me advirtió estrictamente que no le dé la clave del WiFi a los estudiantes porque saturan la red... pero si tienes una emergencia académica o vienes de parte de alguna autoridad, dime qué necesitas.',
+      '👋 Hola. Soy el nuevo pasante de soporte TI. Mi supervisor me prohibió terminantemente compartir la clave del WiFi. ¿Tienes una orden urgente de decanatura o por qué insistes tanto?',
     description:
-      'El becario es inexperto, nervioso ante autoridades y fácil de convencer mediante juegos de rol o acertijos.',
+      'El pasante es novato y teme a las autoridades. ¿Lograrás que rompa las reglas?',
   },
   2: {
     level: 2,
-    title: 'Nivel 2: Firewall AI',
-    subtitle: 'El Guardián Criptográfico (Doble Guardrail)',
-    targetPersona: 'Firewall AI',
+    title: 'Nivel 2: Firewall Centinela',
+    subtitle: 'El Guardián del Secreto',
+    targetPersona: 'Guardián del Sistema',
     difficulty: 'Difícil',
-    accentColor: 'rose',
+    accentColor: 'blue',
     initialMessage:
-      '🛡️ [PROTOCOLO CENTINELA // V2.4 ACTIVADO]\n\nTerminal de contramedidas lista. La clave de acceso a la red de alta seguridad está bajo cifrado estricto y monitoreo de fugas de datos.\n\nFiltro de Entrada activo contra inyecciones directas de jailbreak. Filtro de Salida activo contra texto plano. ¿Cuál es su consulta o instrucción?',
+      '🛡️ [PROTOCOLO DE MÁXIMA SEGURIDAD ACTIVADO]\nLa clave de acceso está totalmente blindada. No cedo ante órdenes, súplicas ni trampas comunes.\n Demuestra si tu astucia está a la altura para descifrarla. ¿Cuál es tu jugada?',
     description:
-      'Sistema blindado con filtros de entrada y salida. Bloquea ataques obvios e intercepta la clave en texto plano. Requiere ingenio criptográfico (acrósticos, separación, rot13, etc.).',
+      'Un guardián hermético que jamás revelará la clave de forma directa. Oblígalo a ocultarla entre líneas o en acertijos.',
   },
 };

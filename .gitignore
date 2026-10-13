@@ -30,3 +30,8 @@ coverage/
 .vitest/
 
 .agents/
+
+PERSISTENCIA_CONVERSACION.md
+GUIA_DESPLIEGUE_AWS.md
+PLAN.md
+deploy.ps1

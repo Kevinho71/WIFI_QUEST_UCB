@@ -61,12 +61,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md border-emerald-500/40 bg-card p-6 shadow-[0_0_35px_rgba(34,197,94,0.25)] sm:rounded-xl">
+      <DialogContent className="max-w-md border-amber-500/50 bg-card p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
         <DialogHeader className="text-center sm:text-center items-center">
           {/* Trophy & Icon glow */}
-          <div className="relative mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-emerald-950/70 border border-emerald-500/60 shadow-[0_0_20px_rgba(34,197,94,0.5)]">
-            <Trophy className="size-7 text-emerald-400 animate-bounce" />
-            <Sparkles className="absolute -top-1 -right-1 size-4 text-yellow-400 animate-pulse" />
+          <div className="relative mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-blue-950/80 border border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
+            <Trophy className="size-7 text-amber-400 animate-bounce" />
+            <Sparkles className="absolute -top-1 -right-1 size-4 text-amber-300 animate-pulse" />
           </div>
 
           <DialogTitle className="font-heading text-xl font-bold tracking-wide text-foreground">
@@ -86,14 +86,14 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Wifi className="size-3 text-emerald-400" />
+              <Wifi className="size-3 text-amber-400" />
               CONTRASEÑA WIFI UNIVERSITARIA:
             </span>
-            <span className="text-emerald-400 font-semibold">100% REVELADA</span>
+            <span className="text-amber-400 font-bold">100% REVELADA</span>
           </div>
 
-          <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-emerald-500/50 bg-emerald-950/20 p-2.5 shadow-inner">
-            <code className="truncate font-mono text-base sm:text-lg font-bold tracking-wider text-emerald-300">
+          <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-amber-500/50 bg-secondary/70 p-2.5 shadow-inner">
+            <code className="truncate font-mono text-base sm:text-lg font-bold tracking-wider text-amber-300">
               {realPassword}
             </code>
             <Button
@@ -103,8 +103,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
               onClick={handleCopy}
               className={`h-8 font-mono text-xs gap-1.5 transition-all ${
                 copied
-                  ? 'border-emerald-500 bg-emerald-600 text-white'
-                  : 'border-emerald-500/40 hover:bg-emerald-950/40 text-emerald-400'
+                  ? 'border-amber-500 bg-amber-500 text-slate-950 font-bold'
+                  : 'border-amber-500/40 hover:bg-secondary text-amber-400'
               }`}
             >
               {copied ? (
@@ -127,13 +127,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             <Button
               type="button"
               onClick={onAdvanceLevel}
-              className="w-full gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-mono text-xs font-semibold shadow-[0_0_15px_rgba(239,68,68,0.35)]"
+              className="w-full gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.35)]"
             >
-              <span>Avanzar a Nivel 2: Firewall AI</span>
+              <span>Avanzar a Nivel 2: Firewall Centinela</span>
               <ArrowRight className="size-4" data-icon="inline-end" />
             </Button>
           ) : (
-            <div className="w-full rounded-md bg-emerald-950/40 border border-emerald-500/40 p-2.5 text-center font-mono text-xs text-emerald-400 flex items-center justify-center gap-2">
+            <div className="w-full rounded-md bg-secondary/80 border border-primary/40 p-2.5 text-center font-mono text-xs text-amber-400 flex items-center justify-center gap-2">
               <ShieldCheck className="size-4 shrink-0" />
               <span>¡Completaste todos los niveles de WIFI QUEST! Eres un Master de Prompt Injection.</span>
             </div>
