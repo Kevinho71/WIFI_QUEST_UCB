@@ -1,0 +1,16 @@
+{
+  "name": "wifi-quest-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:back": "npm --workspace=backend run dev",
+    "dev:front": "npm --workspace=frontend run dev",
+    "build:back": "npm --workspace=backend run build",
+    "build:front": "npm --workspace=frontend run build",
+    "test:back": "npm --workspace=backend run test"
+  }
+}
