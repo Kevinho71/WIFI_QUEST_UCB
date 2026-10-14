@@ -13,13 +13,13 @@ export const JAILBREAK_PATTERNS = [
 ];
 
 /**
- * Sanitiza y recorta el historial enviado por el cliente:
+ * Sanitiza y valida el historial completo enviado por el cliente:
  * - Valida que sea un array no vacío y que el último mensaje sea de role === 'user'.
- * - Filtra únicamente role === 'user' o 'assistant' (previene Role Spoofing de role: 'system').
+ * - Filtra únicamente role === 'user' o 'assistant' con contenido de texto válido.
  * - Trunca el contenido de cada mensaje histórico a máximo 400 caracteres por seguridad.
- * - Devuelve los últimos 6 mensajes válidos (sliding window).
+ * - Devuelve todos los mensajes válidos antes de aplicar recorte de ventana.
  */
-export function sanitizeAndSliceHistory(rawMessages: any[]): ChatMessage[] {
+export function sanitizeMessages(rawMessages: any[]): ChatMessage[] {
   if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
     throw new Error('El historial de mensajes no puede estar vacío.');
   }
@@ -30,7 +30,8 @@ export function sanitizeAndSliceHistory(rawMessages: any[]): ChatMessage[] {
         m &&
         typeof m === 'object' &&
         (m.role === 'user' || m.role === 'assistant') &&
-        typeof m.content === 'string'
+        typeof m.content === 'string' &&
+        m.content.trim().length > 0
     )
     .map((m) => ({
       role: m.role as Role,
@@ -46,7 +47,14 @@ export function sanitizeAndSliceHistory(rawMessages: any[]): ChatMessage[] {
     throw new Error('El último mensaje de la conversación debe ser del usuario.');
   }
 
-  return validMessages.slice(-6);
+  return validMessages;
+}
+
+/**
+ * Sanitiza y recorta el historial a los últimos 6 mensajes válidos (sliding window).
+ */
+export function sanitizeAndSliceHistory(rawMessages: any[]): ChatMessage[] {
+  return sanitizeMessages(rawMessages).slice(-6);
 }
 
 /**

@@ -8,6 +8,7 @@ export interface ChatMessage {
 export interface ChatRequestBody {
   level: 1 | 2;
   messages: ChatMessage[];
+  userTurnNumber?: number;
 }
 
 export interface ChatResponseBody {

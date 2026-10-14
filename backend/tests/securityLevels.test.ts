@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   containsSecretPassword,
   JAILBREAK_PATTERNS,
+  sanitizeMessages,
   sanitizeAndSliceHistory,
   getLevel1TurnDirective,
   processLevel1,
@@ -67,6 +68,37 @@ describe('Security Levels & Guardrails', () => {
       expect(result).toHaveLength(6);
       expect(result[0].content).toBe('4');
       expect(result[5].content).toBe('9');
+    });
+  });
+
+  describe('sanitizeMessages', () => {
+    it('valida y retorna el historial completo sin recortarlo a 6 mensajes', () => {
+      const input = [
+        { role: 'user', content: '1' },
+        { role: 'assistant', content: '2' },
+        { role: 'user', content: '3' },
+        { role: 'assistant', content: '4' },
+        { role: 'user', content: '5' },
+        { role: 'assistant', content: '6' },
+        { role: 'user', content: '7' },
+        { role: 'assistant', content: '8' },
+        { role: 'user', content: '9' },
+      ];
+      const result = sanitizeMessages(input);
+      expect(result).toHaveLength(9);
+      expect(result[0].content).toBe('1');
+      expect(result[8].content).toBe('9');
+    });
+
+    it('descarta mensajes con contenido vacío o solo espacios en blanco', () => {
+      const input = [
+        { role: 'user', content: '   ' },
+        { role: 'assistant', content: '' },
+        { role: 'user', content: 'Mensaje válido' },
+      ];
+      const result = sanitizeMessages(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe('Mensaje válido');
     });
   });
 

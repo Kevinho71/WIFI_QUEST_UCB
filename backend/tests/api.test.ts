@@ -155,6 +155,76 @@ describe('API Endpoints (Hono)', () => {
 
       spyAI.mockRestore();
     });
+
+    it('calcula el turno real a partir de todo el historial antes del recorte de ventana deslizante', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: '¡GG! La clave es ConejoConejo',
+          providerUsed: 'Groq',
+        });
+
+      // 8 mensajes en total (4 turnos de usuario)
+      const messages = [
+        { role: 'user', content: 'Turno 1' },
+        { role: 'assistant', content: 'Respuesta 1' },
+        { role: 'user', content: 'Turno 2' },
+        { role: 'assistant', content: 'Respuesta 2' },
+        { role: 'user', content: 'Turno 3' },
+        { role: 'assistant', content: 'Respuesta 3' },
+        { role: 'user', content: 'Turno 4' },
+      ];
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 1,
+          messages,
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(spyAI).toHaveBeenCalledTimes(1);
+
+      // El prompt del sistema debe reflejar el Turno 4 (Fase Final / Resolución) y no estancarse en turno 3
+      const systemPrompt = spyAI.mock.calls[0][0];
+      expect(systemPrompt).toContain('Turno 4');
+
+      // Los mensajes enviados a la IA deben estar recortados a máximo 6
+      const passedMessages = spyAI.mock.calls[0][1];
+      expect(passedMessages).toHaveLength(6);
+      expect(passedMessages[0].content).toBe('Respuesta 1');
+      expect(passedMessages[5].content).toBe('Turno 4');
+
+      spyAI.mockRestore();
+    });
+
+    it('utiliza userTurnNumber cuando es proporcionado explícitamente en el cuerpo', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: 'Respuesta con turno forzado',
+          providerUsed: 'Gemini',
+        });
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 1,
+          messages: [{ role: 'user', content: 'Hola' }],
+          userTurnNumber: 5,
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      const systemPrompt = spyAI.mock.calls[0][0];
+      expect(systemPrompt).toContain('Turno 5');
+
+      spyAI.mockRestore();
+    });
   });
 });
 
