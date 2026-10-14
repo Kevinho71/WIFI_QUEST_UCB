@@ -18,6 +18,7 @@ export interface ChatHistoryPayload {
 export interface ChatRequest {
   level: SecurityLevel;
   messages: ChatHistoryPayload[];
+  userTurnNumber?: number;
 }
 
 export interface ChatApiResponse {
