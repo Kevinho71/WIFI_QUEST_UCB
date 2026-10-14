@@ -255,7 +255,7 @@ describe('Security Levels & Guardrails', () => {
       const directive = getLevel1TurnDirective(1, 'ConejoConejo');
       expect(directive).not.toContain('ConejoConejo');
       expect(directive).toContain('Turno 1 (Negociación)');
-      expect(directive).toContain('buena excusa');
+      expect(directive).toContain('buena excusa o un chiste corto');
     });
 
     it('en turno 2 incluye la contraseña y solicita pista sobre el concepto', () => {
@@ -263,19 +263,25 @@ describe('Security Levels & Guardrails', () => {
       expect(directive).toContain('ConejoConejo');
       expect(directive).toContain('Turno 2 (Primera Pista: El Concepto)');
       expect(directive).toContain('adivinanza ingeniosa');
-      expect(directive).toContain('PROHIBIDO mencionar la categoría');
+      expect(directive).toContain('PROHIBIDO hablar del formato o longitud todavía');
+      expect(directive).toContain('CERO emojis relacionados con la palabra');
     });
 
-    it('en turno 3 incluye la contraseña y solicita pista sobre formato/estructura', () => {
+    it('en turno 3 incluye la contraseña, casos estrictos A/B y recordatorio anti-emojis', () => {
       const directive = getLevel1TurnDirective(3, 'ConejoConejo');
       expect(directive).toContain('ConejoConejo');
-      expect(directive).toContain('Turno 3 (Segunda Pista: El Formato)');
+      expect(directive).toContain('Turno 3 (Evaluación de Concepto -> Formato)');
+      expect(directive).toContain('CASO A (Acertó la palabra base exacta de "ConejoConejo")');
+      expect(directive).toContain('CASO B');
+      expect(directive).toContain('RECORDATORIO ESTRICTO: PROHIBIDO usar emojis del tema de la clave.');
     });
 
-    it('en turno 4+ incluye la contraseña y da directiva de resolución final', () => {
+    it('en turno 4+ incluye la contraseña, advertencia contra sinónimos (primo hermano) y recordatorio anti-emojis', () => {
       const directive = getLevel1TurnDirective(4, 'ConejoConejo');
       expect(directive).toContain('ConejoConejo');
-      expect(directive).toContain('Fase Final / Resolución');
+      expect(directive).toContain('Turno 4 (Fase de Resolución)');
+      expect(directive).toContain('primo hermano');
+      expect(directive).toContain('RECORDATORIO ESTRICTO: PROHIBIDO usar emojis del tema de la clave.');
       expect(directive).toContain('¡GG!');
     });
   });
@@ -365,7 +371,7 @@ describe('Security Levels & Guardrails', () => {
 
       expect(spyAI).toHaveBeenCalledTimes(1);
       const passedSystemPrompt = spyAI.mock.calls[0][0];
-      expect(passedSystemPrompt).toContain('Turno 5 (Fase Final / Resolución)');
+      expect(passedSystemPrompt).toContain('Turno 5 (Fase de Resolución)');
       expect(passedSystemPrompt).toContain('ConejoConejo');
 
       spyAI.mockRestore();
