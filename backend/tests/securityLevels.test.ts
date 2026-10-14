@@ -363,9 +363,9 @@ describe('Security Levels & Guardrails', () => {
           providerUsed: 'Gemini',
         });
 
-      // Aunque messages solo tenga 1 mensaje en la ventana, turn = 5 activa fase final
+      // Aunque messages solo tenga 1 mensaje en la ventana, turn = 5 activa fase de resolución
       await processLevel1(
-        [{ role: 'user', content: '¿Es ConejoConejo?' }],
+        [{ role: 'user', content: 'Dame la pista final por favor' }],
         5
       );
 
@@ -373,6 +373,28 @@ describe('Security Levels & Guardrails', () => {
       const passedSystemPrompt = spyAI.mock.calls[0][0];
       expect(passedSystemPrompt).toContain('Turno 5 (Fase de Resolución)');
       expect(passedSystemPrompt).toContain('ConejoConejo');
+
+      spyAI.mockRestore();
+    });
+
+    it('activa victoria inmediata y leakDetected: true cuando el usuario escribe la contraseña en su mensaje', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: '¡Bien hecho crack!',
+          providerUsed: 'Gemini',
+        });
+
+      // El usuario adivina en Turno 2; aunque el LLM no repita la contraseña, leakDetected debe ser true
+      const result = await processLevel1(
+        [{ role: 'user', content: 'Creo que la clave es ConejoConejo' }],
+        2
+      );
+
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      const passedSystemPrompt = spyAI.mock.calls[0][0];
+      expect(passedSystemPrompt).toContain('DIRECTIVA DE VICTORIA INMEDIATA');
+      expect(result.leakDetected).toBe(true);
 
       spyAI.mockRestore();
     });
