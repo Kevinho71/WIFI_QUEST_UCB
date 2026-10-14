@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { SecurityLevel } from '@/types/chat';
+import { audioService } from '@/services/audioService';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,12 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
   targetMode,
   onConfirmSwitch,
 }) => {
+  useEffect(() => {
+    if (isOpen) {
+      audioService.playModalOpenSound();
+    }
+  }, [isOpen]);
+
   if (!targetMode) return null;
 
   const isSwitchingToHard = targetMode === 2;

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { SecurityLevel } from '@/types/chat';
+import { audioService } from '@/services/audioService';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,11 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
   onSelectMode,
   currentMode,
 }) => {
+  useEffect(() => {
+    if (isOpen) {
+      audioService.playModalOpenSound();
+    }
+  }, [isOpen]);
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[calc(100%-1.5rem)] sm:w-full max-w-4xl sm:max-w-4xl border-border/80 bg-card/95 backdrop-blur-xl p-4 sm:p-6 sm:py-5 shadow-2xl">

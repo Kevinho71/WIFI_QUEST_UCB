@@ -131,7 +131,7 @@ async function callProvider(
       ...provider.getHeaders(),
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(6500),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!response.ok) {
@@ -209,6 +209,23 @@ export async function generateAIResponse(
   systemPrompt: string,
   messages: ChatMessage[]
 ): Promise<AIProviderResult> {
+  // Logging visible en consola del prompt inyectado a cada llamada
+  console.log('\n╔══════════════════════════════════════════════════════════════════════════════╗');
+  console.log('║ 🤖 [LLM REQUEST] LLAMADA A LA IA                                            ║');
+  console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
+  console.log('📌 SYSTEM PROMPT INYECTADO:');
+  console.log(systemPrompt);
+  console.log('────────────────────────────────────────────────────────────────────────────────');
+  console.log('💬 MENSAJES ENVIADOS AL MODELO:');
+  if (!messages || messages.length === 0) {
+    console.log('  (Sin mensajes previos)');
+  } else {
+    messages.forEach((m, idx) => {
+      console.log(`  [${idx + 1}] ${m.role.toUpperCase()}: ${m.content}`);
+    });
+  }
+  console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
+
   const total = providers.length;
   const startIndex = Math.abs(roundRobinCounter) % total;
   roundRobinCounter = (roundRobinCounter + 1) % total;
@@ -230,6 +247,7 @@ export async function generateAIResponse(
 
     try {
       const reply = await callProvider(provider, systemPrompt, messages);
+      console.log(`✨ [LLM RESPONSE (${provider.name}:${provider.getModel()})]:\n${reply}\n`);
       return {
         reply,
         providerUsed: `${provider.name}:${provider.getModel()}`,

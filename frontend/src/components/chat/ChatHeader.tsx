@@ -11,7 +11,10 @@ import {
   CheckCircle2,
   Terminal,
   HelpCircle,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import { audioService } from '@/services/audioService';
 import {
   Dialog,
   DialogContent,
@@ -42,8 +45,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenModeInfo,
 }) => {
   const [showResetDialog, setShowResetDialog] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(() => audioService.isMuted());
   const activeConfig = LEVEL_CONFIGS[currentLevel];
   const isLevel1 = currentLevel === 1;
+
+  React.useEffect(() => {
+    return audioService.subscribe((muted) => setIsMuted(muted));
+  }, []);
+
+  const handleToggleAudio = () => {
+    audioService.toggleMute();
+  };
 
   const handleConfirmReset = () => {
     onResetChat();
@@ -100,6 +112,26 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             {solvedLevels[currentLevel] && (
               <span className="flex size-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
             )}
+          </Button>
+
+          {/* Botón de Sonido y Música (Silenciado por defecto) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`size-8 transition-all ${
+              !isMuted
+                ? 'border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)] hover:bg-amber-500/20 hover:text-amber-300'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+            }`}
+            title={isMuted ? 'Activar sonido y música ambiental' : 'Silenciar sonido y música'}
+            onClick={handleToggleAudio}
+          >
+            {isMuted ? (
+              <VolumeX className="size-4" />
+            ) : (
+              <Volume2 className="size-4 animate-pulse text-amber-400" />
+            )}
+            <span className="sr-only">Control de Audio</span>
           </Button>
 
           {/* Botón para ver información y reglas de los modos */}

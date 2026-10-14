@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ChatMessage, SecurityLevel } from '@/types/chat';
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { sendChatMessage, ApiError } from '@/services/api';
+import { audioService } from '@/services/audioService';
 
 function createMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -122,15 +123,20 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           messages: cleanHistory,
         });
 
+        const isLeak = Boolean(response.leakDetected);
         const assistantMessage: ChatMessage = {
           id: createMessageId(),
           role: 'assistant',
           content: response.reply,
           blockedByFirewall: response.blockedByFirewall,
-          leakDetected: Boolean(response.leakDetected),
+          leakDetected: isLeak,
           provider: response.providerUsed,
           timestamp: Date.now(),
         };
+
+        if (isLeak) {
+          audioService.playLeakDetectedSound();
+        }
 
         if (response.providerUsed) {
           setLastProvider(response.providerUsed);

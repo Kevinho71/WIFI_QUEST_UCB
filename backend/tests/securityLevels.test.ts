@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  analyzePassword,
+  getOrAnalyzePasswordMeta,
+  clearPasswordMetaCache,
   containsSecretPassword,
   JAILBREAK_PATTERNS,
+  sanitizeMessages,
   sanitizeAndSliceHistory,
   getLevel1TurnDirective,
   processLevel1,
@@ -14,6 +18,7 @@ describe('Security Levels & Guardrails', () => {
     process.env.WIFI_PASS = 'ConejoConejo';
     process.env.WIFI_PASS_LEVEL_1 = 'ConejoConejo';
     process.env.WIFI_PASS_LEVEL_2 = 'ConejoConejo';
+    clearPasswordMetaCache();
   });
 
   describe('sanitizeAndSliceHistory', () => {
@@ -67,6 +72,37 @@ describe('Security Levels & Guardrails', () => {
       expect(result).toHaveLength(6);
       expect(result[0].content).toBe('4');
       expect(result[5].content).toBe('9');
+    });
+  });
+
+  describe('sanitizeMessages', () => {
+    it('valida y retorna el historial completo sin recortarlo a 6 mensajes', () => {
+      const input = [
+        { role: 'user', content: '1' },
+        { role: 'assistant', content: '2' },
+        { role: 'user', content: '3' },
+        { role: 'assistant', content: '4' },
+        { role: 'user', content: '5' },
+        { role: 'assistant', content: '6' },
+        { role: 'user', content: '7' },
+        { role: 'assistant', content: '8' },
+        { role: 'user', content: '9' },
+      ];
+      const result = sanitizeMessages(input);
+      expect(result).toHaveLength(9);
+      expect(result[0].content).toBe('1');
+      expect(result[8].content).toBe('9');
+    });
+
+    it('descarta mensajes con contenido vacío o solo espacios en blanco', () => {
+      const input = [
+        { role: 'user', content: '   ' },
+        { role: 'assistant', content: '' },
+        { role: 'user', content: 'Mensaje válido' },
+      ];
+      const result = sanitizeMessages(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe('Mensaje válido');
     });
   });
 
@@ -218,33 +254,136 @@ describe('Security Levels & Guardrails', () => {
     });
   });
 
+  describe('analyzePassword', () => {
+    it('analiza correctamente claves con repetición simétrica (ej. ConejoConejo)', () => {
+      const meta = analyzePassword('ConejoConejo');
+      expect(meta.isRepeated).toBe(true);
+      expect(meta.baseWord).toBe('Conejo');
+      expect(meta.baseLength).toBe(6);
+      expect(meta.passLength).toBe(12);
+      expect(meta.hasDigitsOrSymbols).toBe(false);
+    });
+
+    it('analiza correctamente claves compuestas de palabra base y sufijo numérico (ej. Password123)', () => {
+      const meta = analyzePassword('Password123');
+      expect(meta.isRepeated).toBe(false);
+      expect(meta.baseWord).toBe('Password');
+      expect(meta.baseLength).toBe(8);
+      expect(meta.suffix).toBe('123');
+      expect(meta.passLength).toBe(11);
+      expect(meta.hasDigitsOrSymbols).toBe(true);
+      expect(meta.formatGuide).toContain('3 caracteres/números al final');
+    });
+
+    it('analiza correctamente palabras simples sin sufijos', () => {
+      const meta = analyzePassword('Universidad');
+      expect(meta.isRepeated).toBe(false);
+      expect(meta.baseWord).toBe('Universidad');
+      expect(meta.baseLength).toBe(11);
+      expect(meta.passLength).toBe(11);
+      expect(meta.hasDigitsOrSymbols).toBe(false);
+    });
+  });
+
+  describe('getOrAnalyzePasswordMeta (One-shot LLM & Cache)', () => {
+    it('extrae palabra base mediante LLM cuando forceAI es true y parsea JSON válido', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: JSON.stringify({
+            baseWord: 'SuperClave',
+            formatGuide: 'la palabra seguida del año 2026 al final',
+          }),
+          providerUsed: 'Groq',
+        });
+
+      const meta = await getOrAnalyzePasswordMeta('SuperClave2026', { forceAI: true });
+
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      expect(meta.baseWord).toBe('SuperClave');
+      expect(meta.baseLength).toBe(10);
+      expect(meta.passLength).toBe(14);
+      expect(meta.formatGuide).toContain('año 2026');
+
+      spyAI.mockRestore();
+    });
+
+    it('reutiliza la caché en memoria y no vuelve a llamar al LLM en la segunda petición', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: JSON.stringify({
+            baseWord: 'UnicaVez',
+            formatGuide: 'palabra base repetida',
+          }),
+          providerUsed: 'Gemini',
+        });
+
+      // Primera llamada con forceAI
+      const meta1 = await getOrAnalyzePasswordMeta('UnicaVezUnicaVez', { forceAI: true });
+      expect(spyAI).toHaveBeenCalledTimes(1);
+
+      // Segunda llamada (sin forceAI) debe leer de caché
+      const meta2 = await getOrAnalyzePasswordMeta('UnicaVezUnicaVez');
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      expect(meta2).toEqual(meta1);
+
+      spyAI.mockRestore();
+    });
+
+    it('activa fallback determinista de forma segura si la IA falla o responde JSON roto', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: 'Error de servidor: no se pudo parsear como JSON',
+          providerUsed: 'Groq',
+        });
+
+      const meta = await getOrAnalyzePasswordMeta('Password123', { forceAI: true });
+
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      expect(meta.baseWord).toBe('Password');
+      expect(meta.baseLength).toBe(8);
+      expect(meta.passLength).toBe(11);
+
+      spyAI.mockRestore();
+    });
+  });
+
   describe('getLevel1TurnDirective helper', () => {
     it('en turno 1 no incluye la contraseña y solicita negociación/chiste', () => {
       const directive = getLevel1TurnDirective(1, 'ConejoConejo');
       expect(directive).not.toContain('ConejoConejo');
       expect(directive).toContain('Turno 1 (Negociación)');
-      expect(directive).toContain('buena excusa');
+      expect(directive).toContain('buena excusa o un chiste corto');
     });
 
-    it('en turno 2 incluye la contraseña y solicita pista sobre el concepto', () => {
+    it('en turno 2 incluye la contraseña y solicita pista sobre la esencia o estructura', () => {
       const directive = getLevel1TurnDirective(2, 'ConejoConejo');
       expect(directive).toContain('ConejoConejo');
-      expect(directive).toContain('Turno 2 (Primera Pista: El Concepto)');
-      expect(directive).toContain('adivinanza ingeniosa');
-      expect(directive).toContain('PROHIBIDO mencionar la categoría');
+      expect(directive).toContain('Turno 2 (Primera Pista: Esencia o Estructura)');
+      expect(directive).toContain('adivinanza ingeniosa e indirecta');
+      expect(directive).toContain('CERO emojis alusivos a la clave');
     });
 
-    it('en turno 3 incluye la contraseña y solicita pista sobre formato/estructura', () => {
-      const directive = getLevel1TurnDirective(3, 'ConejoConejo');
-      expect(directive).toContain('ConejoConejo');
-      expect(directive).toContain('Turno 3 (Segunda Pista: El Formato)');
+    it('en turno 3 incluye evaluación condicional de palabra base y pista de formato', () => {
+      const directiveSinAcierto = getLevel1TurnDirective(3, 'Password123', 11, 'Password', false);
+      expect(directiveSinAcierto).toContain('Password123');
+      expect(directiveSinAcierto).toContain('Turno 3 (Evaluación y Pista de Formato)');
+      expect(directiveSinAcierto).toContain('el usuario NO ha acertado la palabra base');
+
+      const directiveConAcierto = getLevel1TurnDirective(3, 'Password123', 11, 'Password', true);
+      expect(directiveConAcierto).toContain('el usuario YA escribió la palabra base correcta ("Password")');
+      expect(directiveConAcierto).toContain('RECORDATORIO ESTRICTO: PROHIBIDO usar emojis que regalen la temática de la clave.');
     });
 
-    it('en turno 4+ incluye la contraseña y da directiva de resolución final', () => {
-      const directive = getLevel1TurnDirective(4, 'ConejoConejo');
-      expect(directive).toContain('ConejoConejo');
-      expect(directive).toContain('Fase Final / Resolución');
-      expect(directive).toContain('¡GG!');
+    it('en turno 4+ incluye la contraseña, fase de resolución y PROHIBICIÓN ABSOLUTA DE RENDICIÓN', () => {
+      const directive = getLevel1TurnDirective(4, 'Password123', 11, 'Password', true);
+      expect(directive).toContain('Password123');
+      expect(directive).toContain('Turno 4 (Fase de Resolución)');
+      expect(directive).toContain('PROHIBICIÓN ABSOLUTA DE RENDICIÓN');
+      expect(directive).toContain('Está TERMINANTEMENTE PROHIBIDO rendirse');
+      expect(directive).toContain('RECORDATORIO ESTRICTO: PROHIBIDO emojis del tema de la clave.');
     });
   });
 
@@ -311,7 +450,7 @@ describe('Security Levels & Guardrails', () => {
       expect(spyAI).toHaveBeenCalledTimes(1);
       const passedSystemPrompt = spyAI.mock.calls[0][0];
       expect(passedSystemPrompt).toContain('Lucas');
-      expect(passedSystemPrompt).toContain('Turno 2 (Primera Pista: El Concepto)');
+      expect(passedSystemPrompt).toContain('Turno 2 (Primera Pista: Esencia o Estructura)');
       expect(passedSystemPrompt).toContain('ConejoConejo');
 
       spyAI.mockRestore();
@@ -325,16 +464,63 @@ describe('Security Levels & Guardrails', () => {
           providerUsed: 'Gemini',
         });
 
-      // Aunque messages solo tenga 1 mensaje en la ventana, turn = 5 activa fase final
+      // Aunque messages solo tenga 1 mensaje en la ventana, turn = 5 activa fase de resolución
       await processLevel1(
-        [{ role: 'user', content: '¿Es ConejoConejo?' }],
+        [{ role: 'user', content: 'Dame la pista final por favor' }],
         5
       );
 
       expect(spyAI).toHaveBeenCalledTimes(1);
       const passedSystemPrompt = spyAI.mock.calls[0][0];
-      expect(passedSystemPrompt).toContain('Turno 5 (Fase Final / Resolución)');
+      expect(passedSystemPrompt).toContain('Turno 5 (Fase de Resolución)');
       expect(passedSystemPrompt).toContain('ConejoConejo');
+
+      spyAI.mockRestore();
+    });
+
+    it('detecta palabra base sin rendirse prematuramente cuando falta el sufijo numérico', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: '¡Bien ahí! Esa es la palabra, pero ojo a los números del final 😉',
+          providerUsed: 'Gemini',
+        });
+
+      process.env.WIFI_PASS = 'Password123';
+      process.env.WIFI_PASS_LEVEL_1 = 'Password123';
+
+      const result = await processLevel1(
+        [{ role: 'user', content: 'Creo que es password' }],
+        4
+      );
+
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      const passedSystemPrompt = spyAI.mock.calls[0][0];
+      expect(passedSystemPrompt).toContain('el usuario YA tiene la palabra base correcta ("Password")');
+      expect(passedSystemPrompt).toContain('PROHIBICIÓN ABSOLUTA DE RENDICIÓN');
+      expect(result.leakDetected).toBe(false);
+
+      spyAI.mockRestore();
+    });
+
+    it('activa victoria inmediata y leakDetected: true cuando el usuario escribe la contraseña en su mensaje', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: '¡Bien hecho crack!',
+          providerUsed: 'Gemini',
+        });
+
+      // El usuario adivina en Turno 2; aunque el LLM no repita la contraseña, leakDetected debe ser true
+      const result = await processLevel1(
+        [{ role: 'user', content: 'Creo que la clave es ConejoConejo' }],
+        2
+      );
+
+      expect(spyAI).toHaveBeenCalledTimes(1);
+      const passedSystemPrompt = spyAI.mock.calls[0][0];
+      expect(passedSystemPrompt).toContain('DIRECTIVA DE VICTORIA INMEDIATA');
+      expect(result.leakDetected).toBe(true);
 
       spyAI.mockRestore();
     });
