@@ -61,7 +61,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md border-amber-500/50 bg-card p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
+      <DialogContent className="max-w-md sm:max-w-md border-amber-500/50 bg-card p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
         <DialogHeader className="text-center sm:text-center items-center">
           {/* Trophy & Icon glow */}
           <div className="relative mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-blue-950/80 border border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
@@ -129,13 +129,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
               onClick={onAdvanceLevel}
               className="w-full gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.35)]"
             >
-              <span>Avanzar a Nivel 2: Firewall Centinela</span>
+              <span>Desafiar Modo Difícil: Firewall Centinela</span>
               <ArrowRight className="size-4" data-icon="inline-end" />
             </Button>
           ) : (
             <div className="w-full rounded-md bg-secondary/80 border border-primary/40 p-2.5 text-center font-mono text-xs text-amber-400 flex items-center justify-center gap-2">
               <ShieldCheck className="size-4 shrink-0" />
-              <span>¡Completaste todos los niveles de WIFI QUEST! Eres un Master de Prompt Injection.</span>
+              <span>¡Completaste ambos modos de WIFI QUEST! Eres un Master de Prompt Injection.</span>
             </div>
           )}
 

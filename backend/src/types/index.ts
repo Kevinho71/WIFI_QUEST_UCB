@@ -12,6 +12,7 @@ export interface ChatRequestBody {
 
 export interface ChatResponseBody {
   reply: string;
+  leakDetected: boolean;
   blockedByFirewall: boolean;
   provider: string;
 }
@@ -34,6 +35,8 @@ export interface AIProviderResult {
 
 export interface SecurityLevelResult {
   reply: string;
+  leakDetected: boolean;
   blockedByFirewall: boolean;
   provider: string;
 }
+

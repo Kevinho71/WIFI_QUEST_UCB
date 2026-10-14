@@ -8,7 +8,9 @@ yarn-error.log*
 .env
 .env*.local
 backend/.env
+backend/.production
 frontend/.env
+frontend/.env.production
 !.env.example
 !backend/.env.example
 !frontend/.env.example
@@ -35,3 +37,5 @@ PERSISTENCIA_CONVERSACION.md
 GUIA_DESPLIEGUE_AWS.md
 PLAN.md
 deploy.ps1
+PLAN_EXTRACCION_CLAVE.md
+PLAN_MEJORA_PROMPT.md

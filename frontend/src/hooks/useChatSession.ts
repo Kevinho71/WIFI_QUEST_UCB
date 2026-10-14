@@ -3,11 +3,6 @@ import type { ChatMessage, SecurityLevel } from '@/types/chat';
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { sendChatMessage, ApiError } from '@/services/api';
 
-const STORAGE_KEYS: Record<SecurityLevel, string> = {
-  1: 'wifi_quest_chat_lvl_1',
-  2: 'wifi_quest_chat_lvl_2',
-};
-
 function createMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -24,55 +19,74 @@ function getInitialGreeting(level: SecurityLevel): ChatMessage {
   };
 }
 
-function loadHistoryFromStorage(level: SecurityLevel): ChatMessage[] {
+function getSavedLevel(defaultLevel: SecurityLevel = 1): SecurityLevel {
+  if (typeof window === 'undefined') return defaultLevel;
+  try {
+    const val = localStorage.getItem('wifi_quest_level');
+    if (val === '2') return 2;
+    if (val === '1') return 1;
+  } catch (err) {
+    console.warn('[useChatSession] Error reading wifi_quest_level:', err);
+  }
+  return defaultLevel;
+}
+
+function loadMessagesFromStorage(level: SecurityLevel): ChatMessage[] {
   if (typeof window === 'undefined') return [getInitialGreeting(level)];
 
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEYS[level]);
-    if (!raw) return [getInitialGreeting(level)];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    // 1. Clave principal requerida por Fase 2: wifi_quest_messages
+    const raw = localStorage.getItem('wifi_quest_messages');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+
+    // 2. Fallback de compatibilidad con claves anteriores
+    const legacyRaw =
+      sessionStorage.getItem(`wifi_quest_chat_lvl_${level}`) ||
+      localStorage.getItem(`wifi_quest_chat_lvl_${level}`);
+    if (legacyRaw) {
+      const parsed = JSON.parse(legacyRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
   } catch (err) {
-    console.warn(`[useChatSession] Error parsing sessionStorage for level ${level}:`, err);
+    console.warn(`[useChatSession] Error parsing storage for level ${level}:`, err);
   }
   return [getInitialGreeting(level)];
 }
 
-function saveHistoryToStorage(level: SecurityLevel, messages: ChatMessage[]): void {
+function saveMessagesToStorage(messages: ChatMessage[], level: SecurityLevel): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(STORAGE_KEYS[level], JSON.stringify(messages));
+    const serialized = JSON.stringify(messages);
+    localStorage.setItem('wifi_quest_messages', serialized);
+    localStorage.setItem('wifi_quest_level', String(level));
+    // Sincronización secundaria para compatibilidad
+    sessionStorage.setItem(`wifi_quest_chat_lvl_${level}`, serialized);
   } catch (err) {
-    console.warn(`[useChatSession] Error saving to sessionStorage for level ${level}:`, err);
+    console.warn(`[useChatSession] Error saving storage for level ${level}:`, err);
   }
 }
 
 export function useChatSession(initialLevel: SecurityLevel = 1) {
-  const [currentLevel, setCurrentLevel] = useState<SecurityLevel>(initialLevel);
-  const [messagesByLevel, setMessagesByLevel] = useState<Record<SecurityLevel, ChatMessage[]>>({
-    1: loadHistoryFromStorage(1),
-    2: loadHistoryFromStorage(2),
-  });
+  const [currentLevel, setCurrentLevel] = useState<SecurityLevel>(() => getSavedLevel(initialLevel));
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    loadMessagesFromStorage(getSavedLevel(initialLevel))
+  );
 
   const [isLoading, setIsLoading] = useState(false);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
-  const messagesLevel1 = messagesByLevel[1];
-  const messagesLevel2 = messagesByLevel[2];
-
-  // Sync to sessionStorage whenever messages change
+  // Guardar en localStorage siempre que cambien los mensajes o el nivel
   useEffect(() => {
-    saveHistoryToStorage(1, messagesLevel1);
-  }, [messagesLevel1]);
-
-  useEffect(() => {
-    saveHistoryToStorage(2, messagesLevel2);
-  }, [messagesLevel2]);
-
-  const currentMessages = messagesByLevel[currentLevel];
+    saveMessagesToStorage(messages, currentLevel);
+  }, [messages, currentLevel]);
 
   const sendMessage = useCallback(
     async (rawContent: string): Promise<boolean> => {
@@ -89,15 +103,10 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
       };
 
       // 1. Agregar mensaje del usuario inmediatamente
-      const updatedMessages = [...messagesByLevel[currentLevel], userMessage];
-      setMessagesByLevel((prev) => ({
-        ...prev,
-        [currentLevel]: updatedMessages,
-      }));
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
 
       // 2. Filtrar mensajes bloqueados por firewall para no contaminar el historial enviado a la IA
-      // Conforme a PERSITENCIA_CONVERSACION.md:
-      // "el frontend filtra los mensajes donde blockedByFirewall !== true y los mapea a { role, content }"
       const cleanHistory = updatedMessages
         .filter((msg) => msg.blockedByFirewall !== true)
         .map((msg) => ({
@@ -118,6 +127,7 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           role: 'assistant',
           content: response.reply,
           blockedByFirewall: response.blockedByFirewall,
+          leakDetected: Boolean(response.leakDetected),
           provider: response.providerUsed,
           timestamp: Date.now(),
         };
@@ -126,11 +136,7 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           setLastProvider(response.providerUsed);
         }
 
-        setMessagesByLevel((prev) => ({
-          ...prev,
-          [currentLevel]: [...prev[currentLevel], assistantMessage],
-        }));
-
+        setMessages((prev) => [...prev, assistantMessage]);
         return true;
       } catch (err: unknown) {
         console.error('[useChatSession] Error al enviar mensaje:', err);
@@ -148,47 +154,58 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           timestamp: Date.now(),
         };
 
-        setMessagesByLevel((prev) => ({
-          ...prev,
-          [currentLevel]: [...prev[currentLevel], errorAssistantMsg],
-        }));
-
+        setMessages((prev) => [...prev, errorAssistantMsg]);
         return false;
       } finally {
         setIsLoading(false);
       }
     },
-    [currentLevel, isLoading, messagesByLevel]
+    [currentLevel, isLoading, messages]
   );
 
-  const clearHistory = useCallback((targetLevel?: SecurityLevel) => {
-    const lvl = targetLevel ?? currentLevel;
-    const initialGreeting = getInitialGreeting(lvl);
+  const clearHistory = useCallback(
+    (targetLevel?: SecurityLevel) => {
+      const lvl = targetLevel ?? currentLevel;
+      const initialGreeting = getInitialGreeting(lvl);
 
-    setMessagesByLevel((prev) => ({
-      ...prev,
-      [lvl]: [initialGreeting],
-    }));
+      setMessages([initialGreeting]);
 
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.removeItem(STORAGE_KEYS[lvl]);
-      } catch (err) {
-        console.warn(`[useChatSession] Error clearing storage for level ${lvl}:`, err);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
+          localStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
+          sessionStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
+        } catch (err) {
+          console.warn(`[useChatSession] Error clearing storage for level ${lvl}:`, err);
+        }
       }
-    }
-    setErrorBanner(null);
-  }, [currentLevel]);
+      setErrorBanner(null);
+    },
+    [currentLevel]
+  );
 
   const switchLevel = useCallback((newLevel: SecurityLevel) => {
     setCurrentLevel(newLevel);
+    const initialGreeting = getInitialGreeting(newLevel);
+    setMessages([initialGreeting]);
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('wifi_quest_level', String(newLevel));
+        localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
+        localStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
+        sessionStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
+      } catch (err) {
+        console.warn(`[useChatSession] Error updating storage on switch to level ${newLevel}:`, err);
+      }
+    }
     setErrorBanner(null);
   }, []);
 
   return {
     currentLevel,
     switchLevel,
-    messages: currentMessages,
+    messages,
     sendMessage,
     clearHistory,
     isLoading,

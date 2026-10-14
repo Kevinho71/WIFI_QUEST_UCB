@@ -32,9 +32,20 @@ export const PasswordValidator: React.FC<PasswordValidatorProps> = ({
   const [passwordGuess, setPasswordGuess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const activeConfig = LEVEL_CONFIGS[currentLevel];
   const isLevel1 = currentLevel === 1;
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -114,6 +125,7 @@ export const PasswordValidator: React.FC<PasswordValidatorProps> = ({
         <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 pt-1">
           <div className="relative flex-1">
             <Input
+              ref={inputRef}
               type="text"
               value={passwordGuess}
               onChange={(e) => {

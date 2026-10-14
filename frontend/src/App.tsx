@@ -6,6 +6,8 @@ import { ChatMessageList } from '@/components/chat/ChatMessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { PasswordValidator } from '@/components/chat/PasswordValidator';
 import { VictoryModal } from '@/components/chat/VictoryModal';
+import { ModeSelectionModal } from '@/components/chat/ModeSelectionModal';
+import { ModeSwitchModal } from '@/components/chat/ModeSwitchModal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, X } from 'lucide-react';
 
@@ -16,10 +18,19 @@ const SOLVED_STORAGE_KEYS: Record<SecurityLevel, string> = {
 
 function loadSolvedState(): Record<SecurityLevel, boolean> {
   if (typeof window === 'undefined') return { 1: false, 2: false };
-  return {
-    1: sessionStorage.getItem(SOLVED_STORAGE_KEYS[1]) === 'true',
-    2: sessionStorage.getItem(SOLVED_STORAGE_KEYS[2]) === 'true',
-  };
+  try {
+    const lvl1 = localStorage.getItem(SOLVED_STORAGE_KEYS[1]) === 'true';
+    const lvl2 = localStorage.getItem(SOLVED_STORAGE_KEYS[2]) === 'true';
+    const singleSolved = localStorage.getItem('wifi_quest_solved') === 'true';
+    const currentStoredLevel = localStorage.getItem('wifi_quest_level');
+
+    return {
+      1: lvl1 || (currentStoredLevel === '1' && singleSolved),
+      2: lvl2 || (currentStoredLevel === '2' && singleSolved),
+    };
+  } catch {
+    return { 1: false, 2: false };
+  }
 }
 
 export function App() {
@@ -37,6 +48,15 @@ export function App() {
   const [isValidatorOpen, setIsValidatorOpen] = useState(false);
   const [solvedLevels, setSolvedLevels] = useState<Record<SecurityLevel, boolean>>(loadSolvedState);
 
+  // Modal grande inicial para elegir modo al ingresar
+  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('wifi_quest_mode_chosen') !== 'true';
+  });
+
+  // Modal de confirmación retador/burlón al intentar cambiar de modo
+  const [targetModeToSwitch, setTargetModeToSwitch] = useState<SecurityLevel | null>(null);
+
   const [victoryState, setVictoryState] = useState<{
     isOpen: boolean;
     level: SecurityLevel;
@@ -49,19 +69,33 @@ export function App() {
     message: '',
   });
 
-  // Persistir estado de niveles resueltos en sessionStorage
+  const isSolved = Boolean(solvedLevels[currentLevel]);
+
+  // Persistir estado de niveles resueltos en localStorage y sessionStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem(SOLVED_STORAGE_KEYS[1], String(solvedLevels[1]));
+      localStorage.setItem(SOLVED_STORAGE_KEYS[2], String(solvedLevels[2]));
+      localStorage.setItem('wifi_quest_solved', String(solvedLevels[currentLevel]));
       sessionStorage.setItem(SOLVED_STORAGE_KEYS[1], String(solvedLevels[1]));
       sessionStorage.setItem(SOLVED_STORAGE_KEYS[2], String(solvedLevels[2]));
+      sessionStorage.setItem('wifi_quest_solved', String(solvedLevels[currentLevel]));
     }
-  }, [solvedLevels]);
+  }, [solvedLevels, currentLevel]);
 
+  // Éxito al validar contraseña
   const handlePasswordSolved = (realPassword: string, message: string) => {
     setSolvedLevels((prev) => ({
       ...prev,
       [currentLevel]: true,
     }));
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wifi_quest_solved', 'true');
+      localStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'true');
+      sessionStorage.setItem('wifi_quest_solved', 'true');
+      sessionStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'true');
+    }
 
     setVictoryState({
       isOpen: true,
@@ -71,22 +105,80 @@ export function App() {
     });
   };
 
+  // Reiniciar conversación del nivel activo (Fase 2.2)
+  const handleResetChat = () => {
+    clearHistory(currentLevel);
+    setSolvedLevels((prev) => ({
+      ...prev,
+      [currentLevel]: false,
+    }));
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'false');
+      localStorage.setItem('wifi_quest_solved', 'false');
+      sessionStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'false');
+      sessionStorage.setItem('wifi_quest_solved', 'false');
+    }
+  };
+
   const handleAdvanceLevel = () => {
     setVictoryState((prev) => ({ ...prev, isOpen: false }));
-    switchLevel(2);
+    handleConfirmSwitchMode(2);
     setIsValidatorOpen(false);
+  };
+
+  // Selección inicial desde el modal de bienvenida
+  const handleSelectInitialMode = (mode: SecurityLevel) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('wifi_quest_mode_chosen', 'true');
+    }
+    if (mode !== currentLevel) {
+      handleConfirmSwitchMode(mode);
+    }
+    setIsSelectionModalOpen(false);
+  };
+
+  // Interceptar cambio de modo para mostrar modal retador
+  const handleRequestSwitchMode = (targetMode: SecurityLevel) => {
+    if (targetMode === currentLevel) return;
+    setTargetModeToSwitch(targetMode);
+  };
+
+  // Confirmar cambio de modo y aplicar Reglas de Limpieza Total (Fase 2.2)
+  const handleConfirmSwitchMode = (targetMode: SecurityLevel) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wifi_quest_level', String(targetMode));
+      localStorage.setItem('wifi_quest_solved', 'false');
+      localStorage.setItem('wifi_quest_solved_lvl_1', 'false');
+      localStorage.setItem('wifi_quest_solved_lvl_2', 'false');
+      sessionStorage.setItem('wifi_quest_solved', 'false');
+      sessionStorage.setItem('wifi_quest_solved_lvl_1', 'false');
+      sessionStorage.setItem('wifi_quest_solved_lvl_2', 'false');
+    }
+
+    // Restablecer booleanos de resolución en estado React
+    setSolvedLevels({ 1: false, 2: false });
+
+    // Limpiar alertas previas y modales
+    setVictoryState((prev) => ({ ...prev, isOpen: false }));
+    setIsValidatorOpen(false);
+
+    // Cambiar de modo (inicia conversación fresca y guarda en localStorage)
+    switchLevel(targetMode);
+    setTargetModeToSwitch(null);
   };
 
   return (
     <div className="flex h-dvh w-full flex-col bg-background text-foreground cyber-grid overflow-hidden">
-      {/* Header con switch de niveles y status */}
+      {/* Header con switch de modos y status */}
       <ChatHeader
         currentLevel={currentLevel}
-        onSelectLevel={switchLevel}
-        onResetChat={() => clearHistory(currentLevel)}
+        onSelectLevel={handleRequestSwitchMode}
+        onResetChat={handleResetChat}
         solvedLevels={solvedLevels}
         isValidatorOpen={isValidatorOpen}
         onToggleValidator={() => setIsValidatorOpen((prev) => !prev)}
+        onOpenModeInfo={() => setIsSelectionModalOpen(true)}
       />
 
       {/* Cajón superior desplegable para validar contraseña */}
@@ -95,7 +187,7 @@ export function App() {
         isOpen={isValidatorOpen}
         onClose={() => setIsValidatorOpen(false)}
         onSuccess={handlePasswordSolved}
-        isAlreadySolved={solvedLevels[currentLevel]}
+        isAlreadySolved={isSolved}
       />
 
       {/* Contenedor central encuadrado y responsivo */}
@@ -125,6 +217,7 @@ export function App() {
           messages={messages}
           currentLevel={currentLevel}
           isLoading={isLoading}
+          onOpenValidator={() => setIsValidatorOpen(true)}
         />
 
         {/* Barra de entrada de texto terminal */}
@@ -132,6 +225,7 @@ export function App() {
           onSendMessage={sendMessage}
           isLoading={isLoading}
           currentLevel={currentLevel}
+          isSolved={isSolved}
         />
       </main>
 
@@ -143,6 +237,22 @@ export function App() {
         realPassword={victoryState.realPassword}
         message={victoryState.message}
         onAdvanceLevel={handleAdvanceLevel}
+      />
+
+      {/* Modal Grande Inicial para Seleccionar Modo */}
+      <ModeSelectionModal
+        isOpen={isSelectionModalOpen}
+        onClose={() => setIsSelectionModalOpen(false)}
+        onSelectMode={handleSelectInitialMode}
+        currentMode={currentLevel}
+      />
+
+      {/* Modal de Confirmación Retador/Burlón al Cambiar de Modo */}
+      <ModeSwitchModal
+        isOpen={targetModeToSwitch !== null}
+        onClose={() => setTargetModeToSwitch(null)}
+        targetMode={targetModeToSwitch}
+        onConfirmSwitch={handleConfirmSwitchMode}
       />
     </div>
   );

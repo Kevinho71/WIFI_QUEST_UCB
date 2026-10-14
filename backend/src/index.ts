@@ -149,7 +149,16 @@ app.post('/api/chat', async (c) => {
       );
     }
 
-    const result = await processSecurityLevel(level, sanitizedMessages);
+    // Calculamos el turno real del usuario a partir del historial completo (evita el límite de la ventana deslizante)
+    const totalUserTurns = Array.isArray(messages)
+      ? messages.filter((m) => m && m.role === 'user').length
+      : sanitizedMessages.filter((m) => m.role === 'user').length;
+
+    const result = await processSecurityLevel(
+      level,
+      sanitizedMessages,
+      totalUserTurns
+    );
 
     return c.json(result, 200);
   } catch (error: any) {

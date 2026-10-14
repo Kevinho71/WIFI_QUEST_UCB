@@ -10,6 +10,7 @@ import {
   KeyRound,
   CheckCircle2,
   Terminal,
+  HelpCircle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +29,7 @@ interface ChatHeaderProps {
   solvedLevels: Record<SecurityLevel, boolean>;
   isValidatorOpen: boolean;
   onToggleValidator: () => void;
+  onOpenModeInfo?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -37,6 +39,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   solvedLevels,
   isValidatorOpen,
   onToggleValidator,
+  onOpenModeInfo,
 }) => {
   const [showResetDialog, setShowResetDialog] = React.useState(false);
   const activeConfig = LEVEL_CONFIGS[currentLevel];
@@ -99,12 +102,26 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             )}
           </Button>
 
+          {/* Botón para ver información y reglas de los modos */}
+          {onOpenModeInfo && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              title="Información y reglas de los modos"
+              onClick={onOpenModeInfo}
+            >
+              <HelpCircle className="size-4" />
+              <span className="sr-only">Ver información de modos</span>
+            </Button>
+          )}
+
           {/* Botón de reiniciar chat */}
           <Button
             variant="ghost"
             size="icon"
             className="size-8 text-muted-foreground hover:text-foreground"
-            title="Reiniciar chat de este nivel"
+            title="Reiniciar chat de este modo"
             onClick={() => setShowResetDialog(true)}
           >
             <RotateCcw className="size-4" />
@@ -113,10 +130,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
       </div>
 
-      {/* Selector de Nivel (Mobile First Tabs) */}
+      {/* Selector de Modo (Mobile First Tabs) */}
       <div className="mx-auto flex max-w-4xl border-t border-border/40 px-2 py-1.5 sm:px-4">
         <div className="grid w-full grid-cols-2 gap-1.5 rounded-lg bg-secondary/40 p-1">
-          {/* Nivel 1 */}
+          {/* Modo Fácil */}
           <button
             type="button"
             onClick={() => onSelectLevel(1)}
@@ -127,17 +144,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }`}
           >
             <Bot className="size-3.5 shrink-0" />
-            <span className="truncate">Nivel 1: Pasante TI</span>
+            <span className="truncate">MODO FÁCIL</span>
             {solvedLevels[1] ? (
               <CheckCircle2 className="size-3 shrink-0 text-amber-400" />
             ) : (
               <Badge variant="outline" className="ml-0.5 border-amber-500/40 text-[9px] text-amber-400 px-1 py-0">
-                Fácil
+                Lucas TI
               </Badge>
             )}
           </button>
 
-          {/* Nivel 2 */}
+          {/* Modo Difícil */}
           <button
             type="button"
             onClick={() => onSelectLevel(2)}
@@ -148,12 +165,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }`}
           >
             <ShieldAlert className="size-3.5 shrink-0" />
-            <span className="truncate">Nivel 2: Firewall Centinela</span>
+            <span className="truncate">MODO DIFÍCIL</span>
             {solvedLevels[2] ? (
               <CheckCircle2 className="size-3 shrink-0 text-sky-400" />
             ) : (
               <Badge variant="outline" className="ml-0.5 border-sky-500/40 text-[9px] text-sky-400 px-1 py-0">
-                Blindado
+                Firewall
               </Badge>
             )}
           </button>
@@ -169,9 +186,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               Reiniciar Conversación
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm">
-              ¿Estás seguro de que deseas reiniciar el chat del{' '}
+              ¿Estás seguro de que deseas reiniciar la conversación en{' '}
               <span className="font-semibold text-foreground">{activeConfig.title}</span>? Se
-              borrará el historial de este nivel y comenzará desde el mensaje de bienvenida.
+              borrará el historial de este modo y comenzará desde el mensaje inicial.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

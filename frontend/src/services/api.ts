@@ -51,6 +51,7 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatApiResp
     return {
       reply: data.reply || 'Sin respuesta del sistema.',
       blockedByFirewall: Boolean(data.blockedByFirewall),
+      leakDetected: Boolean(data.leakDetected),
       providerUsed: data.providerUsed || data.provider || 'unknown',
     };
   } catch (err: unknown) {

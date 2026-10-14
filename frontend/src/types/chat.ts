@@ -5,6 +5,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   blockedByFirewall?: boolean;
+  leakDetected?: boolean;
   provider?: string;
   timestamp: number;
 }
@@ -22,6 +23,7 @@ export interface ChatRequest {
 export interface ChatApiResponse {
   reply: string;
   blockedByFirewall: boolean;
+  leakDetected?: boolean;
   providerUsed?: string;
   provider?: string;
   error?: string;
