@@ -1,0 +1,41 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env*.local
+backend/.env
+backend/.production
+frontend/.env
+frontend/.env.production
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Build outputs
+dist/
+build/
+.esbuild/
+
+# IDE and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.vitest/
+
+.agents/
+
+PERSISTENCIA_CONVERSACION.md
+GUIA_DESPLIEGUE_AWS.md
+PLAN.md
+deploy.ps1
+PLAN_EXTRACCION_CLAVE.md
+PLAN_MEJORA_PROMPT.md
