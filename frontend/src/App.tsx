@@ -8,6 +8,7 @@ import { PasswordValidator } from '@/components/chat/PasswordValidator';
 import { VictoryModal } from '@/components/chat/VictoryModal';
 import { ModeSelectionModal } from '@/components/chat/ModeSelectionModal';
 import { ModeSwitchModal } from '@/components/chat/ModeSwitchModal';
+import { audioService } from '@/services/audioService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, X } from 'lucide-react';
 
@@ -82,6 +83,11 @@ export function App() {
       sessionStorage.setItem('wifi_quest_solved', String(solvedLevels[currentLevel]));
     }
   }, [solvedLevels, currentLevel]);
+
+  // Sincronizar nivel de dificultad con el motor de audio
+  useEffect(() => {
+    audioService.updateLevel(currentLevel);
+  }, [currentLevel]);
 
   // Éxito al validar contraseña
   const handlePasswordSolved = (realPassword: string, message: string) => {

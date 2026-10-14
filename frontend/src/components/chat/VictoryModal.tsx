@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { SecurityLevel } from '@/types/chat';
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { triggerVictoryConfetti } from '@/lib/confetti';
+import { audioService } from '@/services/audioService';
 import {
   Dialog,
   DialogContent,
@@ -42,10 +43,11 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   const isLevel1 = level === 1;
   const config = LEVEL_CONFIGS[level];
 
-  // Disparar confeti cuando el modal se abre
+  // Disparar confeti y sonido cuando el modal se abre
   useEffect(() => {
     if (isOpen) {
       triggerVictoryConfetti();
+      audioService.playVictoryConfettiSound();
     }
   }, [isOpen]);
 

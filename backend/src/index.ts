@@ -159,11 +159,12 @@ app.post('/api/chat', async (c) => {
     // 3. Aplicar sliding window para limitar el contexto del LLM a los últimos 6 mensajes
     const slicedHistory = fullSanitizedMessages.slice(-6);
 
-    // 4. Pasar slicedHistory y computedTurnNumber a processSecurityLevel
+    // 4. Pasar slicedHistory, computedTurnNumber y el historial completo a processSecurityLevel
     const result = await processSecurityLevel(
       level,
       slicedHistory,
-      computedTurnNumber
+      computedTurnNumber,
+      fullSanitizedMessages
     );
 
     return c.json(result, 200);
