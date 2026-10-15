@@ -91,6 +91,43 @@ describe('Frontend API Service', () => {
       expect(result.leakDetected).toBe(true);
       expect(result.reply).toContain('InvitadosUCB2026');
     });
+
+    it('debe retornar gameState estructurado con fragmentos desbloqueados (Fase 4)', async () => {
+      const mockResponse = {
+        reply: '¡Buena esa! Te anoto la pieza.',
+        blockedByFirewall: false,
+        leakDetected: false,
+        providerUsed: 'groq:llama-3.1-8b',
+        gameState: {
+          phase: 'hunting',
+          totalFragments: 4,
+          discoveredCount: 1,
+          currentChallengeHint: 'Busca una palabra',
+          unlockedFragments: [
+            { id: 'frag_1', orderDiscovered: 1, value: 'admin', type: 'word' },
+          ],
+          justUnlockedFragment: 'admin',
+          isCombo: false,
+        },
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await sendChatMessage({
+        level: 1,
+        messages: [{ role: 'user', content: 'admin' }],
+      });
+
+      expect(result.gameState).toBeDefined();
+      expect(result.gameState?.phase).toBe('hunting');
+      expect(result.gameState?.totalFragments).toBe(4);
+      expect(result.gameState?.discoveredCount).toBe(1);
+      expect(result.gameState?.unlockedFragments[0].value).toBe('admin');
+      expect(result.gameState?.justUnlockedFragment).toBe('admin');
+    });
   });
 
   describe('verifyPassword', () => {

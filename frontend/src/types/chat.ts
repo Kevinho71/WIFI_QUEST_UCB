@@ -21,6 +21,32 @@ export interface ChatRequest {
   userTurnNumber?: number;
 }
 
+export interface DiscoveredFragmentDTO {
+  id: string; // 'frag_1', 'frag_2', etc.
+  orderDiscovered: number; // 1, 2, 3... (orden cronológico de descubrimiento)
+  value: string; // Solo viaja si ya fue descubierto
+  type: 'word' | 'number' | 'symbol';
+}
+
+export interface GameStateDTO {
+  phase: 'negotiation' | 'hunting' | 'assembly' | 'solved';
+  totalFragments: number; // ej. 7
+  discoveredCount: number; // ej. 3
+  currentChallengeHint: string; // Pista descriptiva del reto en curso
+  unlockedFragments: DiscoveredFragmentDTO[]; // Lista en orden cronológico
+  justUnlockedFragment?: string; // Para disparar la animación de caída en el front
+  isCombo?: boolean; // Para disparar sonido especial de combo
+  assemblyDiffAdvice?: string; // Diagnóstico quirúrgico si falló el ensamblaje
+}
+
+export interface UnlockNotification {
+  id: string;
+  fragmentValue: string;
+  discoveredCount: number;
+  totalFragments: number;
+  isCombo?: boolean;
+}
+
 export interface ChatApiResponse {
   reply: string;
   blockedByFirewall: boolean;
@@ -29,6 +55,7 @@ export interface ChatApiResponse {
   provider?: string;
   error?: string;
   message?: string;
+  gameState?: GameStateDTO;
 }
 
 export interface VerifyRequest {

@@ -194,3 +194,68 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
 }
+
+/* Animación física de impacto y rebote para fichas desbloqueadas */
+@keyframes pieceDropImpact {
+  0% {
+    transform: translateY(-35px) scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(3px) scale(1.08);
+    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.85));
+  }
+  80% {
+    transform: translateY(-2px) scale(0.97);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.45));
+  }
+}
+
+.animate-piece-drop {
+  animation: pieceDropImpact 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Animación sutil de entrada y salida para el toast de desbloqueo */
+@keyframes unlockToastAnim {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  88% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+.animate-unlock-toast {
+  animation: unlockToastAnim 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Alerta visual y pulso electromagnético al alcanzar el Modo Ensamblaje */
+@keyframes assemblyBeaconPulse {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.25), inset 0 0 14px rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(245, 158, 11, 0.6), inset 0 0 24px rgba(245, 158, 11, 0.22);
+    border-color: rgba(245, 158, 11, 0.95);
+  }
+}
+
+.animate-assembly-beacon {
+  animation: assemblyBeaconPulse 2.2s infinite ease-in-out;
+}

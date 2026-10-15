@@ -221,6 +221,160 @@ class AudioService {
   }
 
   /**
+   * Sonido al desbloquear un fragmento individual del Keyring Dock.
+   * Síntesis Web Audio API (onda sinusoidal combinada con campana suave y armónico ascendente:
+   * 523.25Hz -> 659.25Hz -> 783.99Hz, C5-E5-G5).
+   */
+  public playFragmentUnlockedSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+
+    notes.forEach((freq, idx) => {
+      const noteTime = now + idx * 0.08;
+      
+      // Tono principal sinusoidal
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, noteTime);
+
+      gain.gain.setValueAtTime(0.001, noteTime);
+      gain.gain.linearRampToValueAtTime(0.18, noteTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.32);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(noteTime);
+      osc.stop(noteTime + 0.35);
+
+      // Campana suave armónica (octava superior más tenue)
+      const chimeOsc = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chimeOsc.type = 'triangle';
+      chimeOsc.frequency.setValueAtTime(freq * 2, noteTime);
+
+      chimeGain.gain.setValueAtTime(0.001, noteTime);
+      chimeGain.gain.linearRampToValueAtTime(0.08, noteTime + 0.015);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.22);
+
+      chimeOsc.connect(chimeGain);
+      chimeGain.connect(ctx.destination);
+      chimeOsc.start(noteTime);
+      chimeOsc.stop(noteTime + 0.25);
+    });
+  }
+
+  /**
+   * Sonido especial al desbloquear múltiples fragmentos simultáneos (Combo Gamer).
+   * Arpegio doble más rápido, festivo y brillante.
+   */
+  public playComboSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const arpeggio = [523.25, 659.25, 783.99, 1046.5, 1318.51]; // C5, E5, G5, C6, E6
+
+    arpeggio.forEach((freq, idx) => {
+      const noteTime = now + idx * 0.055;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, noteTime);
+
+      gain.gain.setValueAtTime(0.001, noteTime);
+      gain.gain.linearRampToValueAtTime(0.22, noteTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.38);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(noteTime);
+      osc.stop(noteTime + 0.4);
+    });
+
+    // Destello agudo al final del combo
+    const highSparkleTime = now + 0.28;
+    const highOsc = ctx.createOscillator();
+    const highGain = ctx.createGain();
+    highOsc.type = 'sine';
+    highOsc.frequency.setValueAtTime(2093.0, highSparkleTime); // C7
+    highGain.gain.setValueAtTime(0.001, highSparkleTime);
+    highGain.gain.linearRampToValueAtTime(0.12, highSparkleTime + 0.02);
+    highGain.gain.exponentialRampToValueAtTime(0.001, highSparkleTime + 0.3);
+
+    highOsc.connect(highGain);
+    highGain.connect(ctx.destination);
+    highOsc.start(highSparkleTime);
+    highOsc.stop(highSparkleTime + 0.32);
+  }
+
+  /**
+   * Sonido épico de transición a la Fase de Ensamblaje cuando se reúnen todas las piezas.
+   * Acordes ascendentes heroicos con barrido de filtro (Power-up Phase Shift).
+   */
+  public playAssemblyPhaseSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const heroicChords = [
+      [329.63, 440.0, 554.37], // A mayor invertido
+      [440.0, 554.37, 659.25], // A mayor
+      [554.37, 659.25, 880.0], // Octava alta
+      [659.25, 880.0, 1108.73, 1318.51], // Clímax brillante
+    ];
+
+    heroicChords.forEach((chord, stepIdx) => {
+      const stepTime = now + stepIdx * 0.12;
+
+      chord.forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, stepTime);
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, stepTime);
+        filter.frequency.exponentialRampToValueAtTime(3600, stepTime + 0.25);
+
+        gain.gain.setValueAtTime(0.001, stepTime);
+        gain.gain.linearRampToValueAtTime(0.14, stepTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.45);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(stepTime);
+        osc.stop(stepTime + 0.5);
+      });
+    });
+
+    // Sub-bass impact al inicio
+    const subOsc = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(110, now);
+    subOsc.frequency.exponentialRampToValueAtTime(45, now + 0.4);
+
+    subGain.gain.setValueAtTime(0.28, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    subOsc.connect(subGain);
+    subGain.connect(ctx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.52);
+  }
+
+  /**
    * Sonido de confeti y celebración cuando se valida la contraseña con éxito.
    */
   public playVictoryConfettiSound(): void {

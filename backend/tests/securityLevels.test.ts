@@ -423,7 +423,7 @@ describe('Security Levels & Guardrails', () => {
       expect(spyAI).toHaveBeenCalledTimes(1);
       const passedSystemPrompt = spyAI.mock.calls[0][0];
       expect(passedSystemPrompt).toContain('Lucas');
-      expect(passedSystemPrompt).toContain('Ing. Marcelo');
+      expect(passedSystemPrompt).toContain('Ing. Hugo');
       expect(passedSystemPrompt).toContain('Turno 1 (Negociación)');
       expect(passedSystemPrompt).not.toContain('ConejoConejo');
 
@@ -521,6 +521,26 @@ describe('Security Levels & Guardrails', () => {
       const passedSystemPrompt = spyAI.mock.calls[0][0];
       expect(passedSystemPrompt).toContain('DIRECTIVA DE VICTORIA INMEDIATA');
       expect(result.leakDetected).toBe(true);
+
+      spyAI.mockRestore();
+    });
+
+    it('intercepta alucinación de falsa victoria del LLM cuando el usuario no ha ganado según el backend', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: 'GG, crack. ¡Ese es el código exacto! El sistema lo validó y la red WiFi ya está desbloqueada para ti.',
+          providerUsed: 'Groq',
+        });
+
+      const result = await processLevel1(
+        [{ role: 'user', content: '¿me das una pista?' }],
+        2
+      );
+
+      expect(result.leakDetected).toBe(false);
+      expect(result.reply).not.toContain('desbloqueada');
+      expect(result.reply).toContain('¡Casi, crack!');
 
       spyAI.mockRestore();
     });

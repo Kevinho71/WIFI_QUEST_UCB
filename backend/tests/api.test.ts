@@ -225,6 +225,35 @@ describe('API Endpoints (Hono)', () => {
 
       spyAI.mockRestore();
     });
+
+    it('incluye GameStateDTO en la respuesta de POST /api/chat para el nivel 1', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: 'Hola crack, ¿cuál es tu chiste?',
+          providerUsed: 'MockAI',
+        });
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 1,
+          messages: [{ role: 'user', content: 'Hola Lucas' }],
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.gameState).toBeDefined();
+      expect(data.gameState.phase).toBe('negotiation');
+      expect(typeof data.gameState.totalFragments).toBe('number');
+      expect(typeof data.gameState.discoveredCount).toBe('number');
+      expect(Array.isArray(data.gameState.unlockedFragments)).toBe(true);
+      expect(typeof data.gameState.currentChallengeHint).toBe('string');
+
+      spyAI.mockRestore();
+    });
   });
 });
 

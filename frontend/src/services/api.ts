@@ -53,6 +53,7 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatApiResp
       blockedByFirewall: Boolean(data.blockedByFirewall),
       leakDetected: Boolean(data.leakDetected),
       providerUsed: data.providerUsed || data.provider || 'unknown',
+      gameState: data.gameState,
     };
   } catch (err: unknown) {
     if (err instanceof ApiError) throw err;

@@ -40,3 +40,10 @@ deploy.ps1
 PLAN_EXTRACCION_CLAVE.md
 PLAN_MEJORA_PROMPT.md
 plan_dinamico_contrasena.md
+PLAN_JUEGO_SECUENCIAL.md
+
+conversacion.txt
+formato_respuesta.txt
+logs.txt
+PLAN_ERRADICACION_ALUCINACIONES.md
+recomendacion.txt
