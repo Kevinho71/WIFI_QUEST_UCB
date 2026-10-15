@@ -167,6 +167,10 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
         assembly: userMessage.assembly,
       };
 
+      // Blip sutil en CADA respuesta del LLM (chat Nivel 1, Nivel 2 y ensamblaje).
+      // Suena siempre, incluso junto a los sonidos de fuga/victoria.
+      audioService.playLlmReplySound();
+
       if (hasWon) {
         audioService.playLeakDetectedSound();
       }

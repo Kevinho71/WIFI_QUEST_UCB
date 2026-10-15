@@ -105,6 +105,11 @@ export function App() {
 
   // Éxito al validar contraseña
   const handlePasswordSolved = (realPassword: string, message: string) => {
+    // Al completar el ensamblado, cortamos la pista de tensión y dejamos la música
+    // del nivel activo (evita que ambas suenen mezcladas). En el flujo de validación
+    // normal de contraseña es un no-op (no estamos en modo ensamblaje).
+    void audioService.setAssemblyMode(false);
+
     setSolvedLevels((prev) => ({
       ...prev,
       [currentLevel]: true,

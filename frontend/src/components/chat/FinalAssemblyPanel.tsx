@@ -106,8 +106,14 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   }, []);
 
   // La urgencia se ajusta por bandas; el motor la lee en cada compás (sin reiniciar).
+  // Al agotarse el contador (que es pura broma), relajamos la música: volvemos a la
+  // pista del modo fácil en lugar de escalar a la alarma crítica.
   useEffect(() => {
-    audioService.setAssemblyUrgency(band === 'expired' ? 'critical' : band);
+    if (band === 'expired') {
+      void audioService.setAssemblyMode(false);
+      return;
+    }
+    audioService.setAssemblyUrgency(band);
   }, [band]);
 
   const warnedRef = useRef<boolean>(remainingMs <= 10_000);
