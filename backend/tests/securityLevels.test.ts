@@ -423,7 +423,7 @@ describe('Security Levels & Guardrails', () => {
       expect(spyAI).toHaveBeenCalledTimes(1);
       const passedSystemPrompt = spyAI.mock.calls[0][0];
       expect(passedSystemPrompt).toContain('Lucas');
-      expect(passedSystemPrompt).toContain('Ing. Marcelo');
+      expect(passedSystemPrompt).toContain('Ing. Hugo');
       expect(passedSystemPrompt).toContain('Turno 1 (Negociación)');
       expect(passedSystemPrompt).not.toContain('ConejoConejo');
 
