@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type {
   AssemblyFeedbackDTO,
   AssemblyValidationResult,
   GameStateDTO,
 } from '@/types/chat';
 import { Button } from '@/components/ui/button';
+import { audioService } from '@/services/audioService';
 import {
   placePiece,
   removeFromSlot,
@@ -101,11 +102,53 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   // muestra el aviso de expiración o la instrucción inicial.
   const bubbleMessage = llmReply ?? (expired ? EXPIRED_TAUNT : INTRO_MESSAGE);
 
+  // Fase 4 — música tensa durante el ensamblaje; se restaura al salir de la escena.
+  useEffect(() => {
+    void audioService.setAssemblyMode(true);
+    return () => {
+      void audioService.setAssemblyMode(false);
+    };
+  }, []);
+
+  // La urgencia se ajusta por bandas; el motor la lee en cada compás (sin reiniciar).
+  useEffect(() => {
+    audioService.setAssemblyUrgency(band === 'expired' ? 'critical' : band);
+  }, [band]);
+
+  const warnedRef = useRef<boolean>(remainingMs <= 10_000);
+  const tickSecondRef = useRef<number | null>(null);
+  const prevExpiredRef = useRef<boolean>(expired);
+
+  // Aviso de últimos segundos (una vez) + tics de la cuenta final.
+  useEffect(() => {
+    if (expired) return;
+    const seconds = Math.ceil(remainingMs / 1000);
+
+    if (remainingMs <= 10_000 && !warnedRef.current) {
+      warnedRef.current = true;
+      audioService.playAssemblyWarningSound();
+    }
+    if (seconds <= 5 && seconds >= 1 && tickSecondRef.current !== seconds) {
+      tickSecondRef.current = seconds;
+      audioService.playAssemblyTickSound();
+    }
+  }, [remainingMs, expired]);
+
+  // Sonido único al expirar (la música sigue: expirar no bloquea nada).
+  useEffect(() => {
+    if (expired && !prevExpiredRef.current) {
+      audioService.playAssemblyExpiredSound();
+    }
+    prevExpiredRef.current = expired;
+  }, [expired]);
+
   const full = isLayoutFull(layout);
   const hasPlaced = layout.slots.some((id) => id !== null);
   const allPlacedCount = layout.slots.filter((id) => id !== null).length;
 
   const commit = (next: AssemblyLayout) => {
+    if (next === layout) return; // no-op: no suena ni re-renderiza
+    audioService.playPiecePlaceSound();
     setLayout(next);
     setFeedback(null);
   };
@@ -183,6 +226,14 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
 
     if (result.victory) {
       onSolved?.(candidate, result.reply);
+      return;
+    }
+
+    // Refuerzo sonoro del acierto parcial o del fallo total.
+    if (result.feedback && result.feedback.wellPlaced > 0) {
+      audioService.playSlotCorrectSound();
+    } else {
+      audioService.playAssemblyWrongSound();
     }
   };
 

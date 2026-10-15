@@ -26,6 +26,10 @@ class AudioService {
   private activeMusicMasterGain: GainNode | null = null;
   private isMusicPlaying = false;
 
+  // Fase 4 — Ensamblaje final (Nivel 1): música de tensión + urgencia escalable.
+  private assemblyMode = false;
+  private assemblyUrgency: 'normal' | 'warning' | 'critical' = 'normal';
+
   constructor() {
     if (typeof window !== 'undefined') {
       const storedMute = sessionStorage.getItem('wifi_quest_muted');
@@ -121,6 +125,29 @@ class AudioService {
     if (!this.isMutedState) {
       this.startMusic(level);
     }
+  }
+
+  /**
+   * Activa/desactiva la música de tensión del Ensamblaje Final. Al activarla (o
+   * desactivarla) se reinicia la pista activa; si el audio está silenciado solo
+   * queda registrado y se aplicará al desmutear.
+   */
+  public async setAssemblyMode(active: boolean): Promise<void> {
+    if (this.assemblyMode === active) return;
+    this.assemblyMode = active;
+    this.assemblyUrgency = 'normal';
+    if (!this.isMutedState) {
+      await this.startMusic(this.currentLevel);
+    }
+  }
+
+  /**
+   * Ajusta la intensidad de la música de ensamblaje. El motor lee la urgencia en
+   * cada compás, así que NO se reinicia la pista (evita cortes y capas extra).
+   */
+  public setAssemblyUrgency(urgency: 'normal' | 'warning' | 'critical'): void {
+    if (this.assemblyUrgency === urgency) return;
+    this.assemblyUrgency = urgency;
   }
 
   // =========================================================================
@@ -462,6 +489,173 @@ class AudioService {
   }
 
   // =========================================================================
+  // EFECTOS DEL ENSAMBLAJE FINAL (FASE 4)
+  // =========================================================================
+
+  /** Clic corto al tomar, colocar, intercambiar o retirar una pieza. */
+  public playPiecePlaceSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    const click = ctx.createOscillator();
+    const clickGain = ctx.createGain();
+    click.type = 'triangle';
+    click.frequency.setValueAtTime(320, now);
+    click.frequency.exponentialRampToValueAtTime(180, now + 0.05);
+
+    clickGain.gain.setValueAtTime(0.001, now);
+    clickGain.gain.linearRampToValueAtTime(0.14, now + 0.008);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    click.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    click.start(now);
+    click.stop(now + 0.07);
+  }
+
+  /** Confirmación de una posición correcta (destello seco y satisfactorio). */
+  public playSlotCorrectSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    [1046.5, 1567.98].forEach((freq, idx) => {
+      const t = now + idx * 0.07;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.16, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    });
+  }
+
+  /** Validación incorrecta: zumbido descendente disonante y breve. */
+  public playAssemblyWrongSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(196, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.22);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1400, now);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.28);
+  }
+
+  /** Aviso al entrar en los últimos segundos: dos blips de alarma. */
+  public playAssemblyWarningSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    [0, 0.16].forEach((offset) => {
+      const t = now + offset;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, t);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.12, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.11);
+    });
+  }
+
+  /** Tic de cada segundo en la cuenta final (discreto). */
+  public playAssemblyTickSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1320, now);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  }
+
+  /** Al expirar el minuto (broma): glissando descendente irónico. */
+  public playAssemblyExpiredSound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(90, now + 0.55);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.62);
+
+    const sub = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(120, now);
+    sub.frequency.exponentialRampToValueAtTime(55, now + 0.4);
+
+    subGain.gain.setValueAtTime(0.001, now);
+    subGain.gain.linearRampToValueAtTime(0.2, now + 0.03);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    sub.connect(subGain);
+    subGain.connect(ctx.destination);
+    sub.start(now);
+    sub.stop(now + 0.47);
+  }
+
+  // =========================================================================
   // MÚSICA DE FONDO (BGM)
   // =========================================================================
 
@@ -515,17 +709,29 @@ class AudioService {
     this.isMusicPlaying = true;
 
     const isLevel1 = level === 1;
+    const isAssembly = this.assemblyMode && level === 1;
 
     // Bus Maestro de Música
     const musicMaster = ctx.createGain();
     // Nivel maestro cómodo: 0.22 (perfectamente audible sin tapar la voz o efectos)
     musicMaster.gain.setValueAtTime(0.01, ctx.currentTime);
-    musicMaster.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 1.0);
+    musicMaster.gain.linearRampToValueAtTime(isAssembly ? 0.24 : 0.22, ctx.currentTime + 1.0);
 
     const masterFilter = ctx.createBiquadFilter();
     masterFilter.type = 'lowpass';
-    masterFilter.frequency.setValueAtTime(isLevel1 ? 1800 : 1200, ctx.currentTime);
-    masterFilter.Q.setValueAtTime(isLevel1 ? 1 : 2.5, ctx.currentTime);
+    masterFilter.frequency.setValueAtTime(
+      isAssembly ? 2600 : isLevel1 ? 1800 : 1200,
+      ctx.currentTime
+    );
+    masterFilter.Q.setValueAtTime(isAssembly ? 3 : isLevel1 ? 1 : 2.5, ctx.currentTime);
+
+    // Timbre por escena: el ensamblaje es más áspero (sawtooth/square) y tenso.
+    const padType: OscillatorType = isAssembly ? 'sawtooth' : isLevel1 ? 'triangle' : 'sawtooth';
+    const padLevel = isAssembly ? 0.13 : isLevel1 ? 0.22 : 0.16;
+    const bassType: OscillatorType = isAssembly ? 'square' : isLevel1 ? 'sine' : 'sawtooth';
+    const bassLevel = isAssembly ? 0.3 : isLevel1 ? 0.32 : 0.26;
+    const arpType: OscillatorType = isAssembly ? 'square' : isLevel1 ? 'sine' : 'triangle';
+    const arpLevel = isAssembly ? 0.09 : isLevel1 ? 0.14 : 0.12;
 
     masterFilter.connect(musicMaster);
     musicMaster.connect(ctx.destination);
@@ -581,8 +787,32 @@ class AudioService {
       },
     ];
 
-    const currentProgression = isLevel1 ? easyChords : hardChords;
-    const barDuration = isLevel1 ? 2.4 : 1.8; // Segundos por compás
+    // Progresión Ensamblaje Final (Nivel 1): tensa y cromática (Dm -> Bbm -> G#dim -> A7)
+    const assemblyChords = [
+      {
+        chord: [146.83, 174.61, 220.0], // Dm (D3, F3, A3)
+        bass: 73.42, // D2
+        melody: [880.0, 932.33, 987.77, 880.0], // A5, Bb5, B5, A5
+      },
+      {
+        chord: [116.54, 138.59, 174.61], // Bbm (Bb2, Db3, F3)
+        bass: 58.27, // Bb1
+        melody: [987.77, 1046.5, 1108.73, 987.77], // B5, C6, C#6, B5
+      },
+      {
+        chord: [103.83, 123.47, 146.83], // G#dim (G#2, B2, D3)
+        bass: 51.91, // G#1
+        melody: [1046.5, 1108.73, 1174.66, 1046.5], // C6, C#6, D6, C6
+      },
+      {
+        chord: [110.0, 138.59, 164.81, 196.0], // A7 (A2, Db3, E3, G3)
+        bass: 55.0, // A1
+        melody: [1174.66, 1108.73, 987.77, 880.0], // D6, C#6, B5, A5
+      },
+    ];
+
+    const currentProgression = isAssembly ? assemblyChords : isLevel1 ? easyChords : hardChords;
+    const barDuration = isAssembly ? 1.6 : isLevel1 ? 2.4 : 1.8; // Segundos por compás
 
     const playBar = () => {
       if (this.isMutedState || !this.isMusicPlaying) return;
@@ -598,12 +828,12 @@ class AudioService {
         const padOsc = ctx.createOscillator();
         const padGain = ctx.createGain();
 
-        padOsc.type = isLevel1 ? 'triangle' : 'sawtooth';
+        padOsc.type = padType;
         padOsc.frequency.setValueAtTime(freq, now);
-        padOsc.detune.setValueAtTime((i % 2 === 0 ? 3 : -3) * (isLevel1 ? 2 : 4), now);
+        padOsc.detune.setValueAtTime((i % 2 === 0 ? 3 : -3) * (isAssembly ? 6 : isLevel1 ? 2 : 4), now);
 
         padGain.gain.setValueAtTime(0.001, now);
-        padGain.gain.linearRampToValueAtTime(isLevel1 ? 0.22 : 0.16, now + barDuration * 0.3);
+        padGain.gain.linearRampToValueAtTime(padLevel, now + barDuration * 0.3);
         padGain.gain.linearRampToValueAtTime(0.001, now + barDuration);
 
         padOsc.connect(padGain);
@@ -617,11 +847,11 @@ class AudioService {
       const bassOsc = ctx.createOscillator();
       const bassGain = ctx.createGain();
 
-      bassOsc.type = isLevel1 ? 'sine' : 'sawtooth';
+      bassOsc.type = bassType;
       bassOsc.frequency.setValueAtTime(barData.bass, now);
 
       bassGain.gain.setValueAtTime(0.001, now);
-      bassGain.gain.linearRampToValueAtTime(isLevel1 ? 0.32 : 0.26, now + 0.08);
+      bassGain.gain.linearRampToValueAtTime(bassLevel, now + 0.08);
       bassGain.gain.exponentialRampToValueAtTime(0.001, now + barDuration * 0.95);
 
       bassOsc.connect(bassGain);
@@ -659,11 +889,11 @@ class AudioService {
         const arpOsc = ctx.createOscillator();
         const arpGain = ctx.createGain();
 
-        arpOsc.type = isLevel1 ? 'sine' : 'triangle';
+        arpOsc.type = arpType;
         arpOsc.frequency.setValueAtTime(noteFreq, noteStart);
 
         arpGain.gain.setValueAtTime(0.001, noteStart);
-        arpGain.gain.linearRampToValueAtTime(isLevel1 ? 0.14 : 0.12, noteStart + 0.03);
+        arpGain.gain.linearRampToValueAtTime(arpLevel, noteStart + 0.03);
         arpGain.gain.exponentialRampToValueAtTime(0.001, noteStart + subStepTime * 0.9);
 
         arpOsc.connect(arpGain);
@@ -672,6 +902,66 @@ class AudioService {
         arpOsc.start(noteStart);
         arpOsc.stop(noteStart + subStepTime);
       });
+
+      // Extras del Ensamblaje Final: pulso de reloj, alarmas e intensidad escalable
+      if (isAssembly) {
+        const urgency = this.assemblyUrgency;
+
+        // Pulso de reloj (tick-tock) en cada mitad del compás.
+        [0, 0.5].forEach((fraction) => {
+          const t = now + barDuration * fraction;
+          const tick = ctx.createOscillator();
+          const tickGain = ctx.createGain();
+          tick.type = 'square';
+          tick.frequency.setValueAtTime(1400, t);
+
+          tickGain.gain.setValueAtTime(0.001, t);
+          tickGain.gain.linearRampToValueAtTime(0.05, t + 0.008);
+          tickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+          tick.connect(tickGain);
+          tickGain.connect(masterFilter);
+          tick.start(t);
+          tick.stop(t + 0.09);
+        });
+
+        // Alarmas: más blips y más fuertes según la urgencia.
+        const blipCount = urgency === 'critical' ? 6 : urgency === 'warning' ? 3 : 0;
+        const blipLevel = urgency === 'critical' ? 0.1 : 0.07;
+        for (let i = 0; i < blipCount; i++) {
+          const t = now + (barDuration / blipCount) * i;
+          const blip = ctx.createOscillator();
+          const blipGain = ctx.createGain();
+          blip.type = 'sawtooth';
+          blip.frequency.setValueAtTime(i % 2 === 0 ? 987.77 : 1108.73, t); // B5 / C#6
+
+          blipGain.gain.setValueAtTime(0.001, t);
+          blipGain.gain.linearRampToValueAtTime(blipLevel, t + 0.02);
+          blipGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+          blip.connect(blipGain);
+          blipGain.connect(masterFilter);
+          blip.start(t);
+          blip.stop(t + 0.2);
+        }
+
+        // Capa disonante (semitono) solo en estado crítico.
+        if (urgency === 'critical') {
+          const dissonant = ctx.createOscillator();
+          const dissonantGain = ctx.createGain();
+          dissonant.type = 'sawtooth';
+          dissonant.frequency.setValueAtTime(barData.bass * 1.059, now);
+
+          dissonantGain.gain.setValueAtTime(0.001, now);
+          dissonantGain.gain.linearRampToValueAtTime(0.09, now + barDuration * 0.3);
+          dissonantGain.gain.linearRampToValueAtTime(0.001, now + barDuration);
+
+          dissonant.connect(dissonantGain);
+          dissonantGain.connect(masterFilter);
+          dissonant.start(now);
+          dissonant.stop(now + barDuration + 0.05);
+        }
+      }
 
       step++;
     };

@@ -12,6 +12,35 @@ describe('AudioService - Sonidos Procedurales de WIFI QUEST (Fase 5)', () => {
     expect(typeof audioService.playAssemblyPhaseSound).toBe('function');
   });
 
+  it('debe exponer los efectos y el modo del Ensamblaje Final (Fase 4)', () => {
+    expect(typeof audioService.playPiecePlaceSound).toBe('function');
+    expect(typeof audioService.playSlotCorrectSound).toBe('function');
+    expect(typeof audioService.playAssemblyWrongSound).toBe('function');
+    expect(typeof audioService.playAssemblyWarningSound).toBe('function');
+    expect(typeof audioService.playAssemblyTickSound).toBe('function');
+    expect(typeof audioService.playAssemblyExpiredSound).toBe('function');
+    expect(typeof audioService.setAssemblyMode).toBe('function');
+    expect(typeof audioService.setAssemblyUrgency).toBe('function');
+  });
+
+  it('no lanza errores con los efectos y el modo de ensamblaje si está silenciado', async () => {
+    await audioService.setMuted(true);
+    expect(audioService.isMuted()).toBe(true);
+
+    expect(() => {
+      audioService.playPiecePlaceSound();
+      audioService.playSlotCorrectSound();
+      audioService.playAssemblyWrongSound();
+      audioService.playAssemblyWarningSound();
+      audioService.playAssemblyTickSound();
+      audioService.playAssemblyExpiredSound();
+      audioService.setAssemblyUrgency('critical');
+    }).not.toThrow();
+
+    await expect(audioService.setAssemblyMode(true)).resolves.toBeUndefined();
+    await expect(audioService.setAssemblyMode(false)).resolves.toBeUndefined();
+  });
+
   it('no debe lanzar errores al ejecutar los efectos cuando está silenciado (isMuted)', () => {
     audioService.setMuted(true);
     expect(audioService.isMuted()).toBe(true);
