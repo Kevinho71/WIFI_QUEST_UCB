@@ -35,6 +35,8 @@ export interface ChatResponseBody {
   blockedByFirewall: boolean;
   provider: string;
   gameState?: GameStateDTO;
+  victory?: boolean; // true SOLO cuando el usuario ganó legítimamente
+  leakBlocked?: boolean; // true si el guard interceptó una fuga del LLM
 }
 
 export interface VerifyRequestBody {
@@ -59,6 +61,8 @@ export interface SecurityLevelResult {
   blockedByFirewall: boolean;
   provider: string;
   gameState?: GameStateDTO;
+  victory?: boolean; // true SOLO cuando el usuario ganó legítimamente
+  leakBlocked?: boolean; // true si el guard interceptó una fuga del LLM
 }
 
 export type FragmentType = 'word' | 'number' | 'symbol';

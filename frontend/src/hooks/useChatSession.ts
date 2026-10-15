@@ -159,17 +159,27 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
         });
 
         const isLeak = Boolean(response.leakDetected);
+        const leakBlocked = Boolean(response.leakBlocked);
+        // Victoria legítima (motor v2): flag explícito o fase resuelta. Se conserva
+        // el flujo v1 (leakDetected) mientras LEVEL1_ENGINE siga en v1; una fuga
+        // interceptada (leakBlocked) NUNCA dispara el flujo de victoria.
+        const hasWon =
+          Boolean(response.victory) ||
+          response.gameState?.phase === 'solved' ||
+          (isLeak && !leakBlocked);
+
         const assistantMessage: ChatMessage = {
           id: createMessageId(),
           role: 'assistant',
           content: response.reply,
           blockedByFirewall: response.blockedByFirewall,
           leakDetected: isLeak,
+          leakBlocked,
           provider: response.providerUsed,
           timestamp: Date.now(),
         };
 
-        if (isLeak) {
+        if (hasWon) {
           audioService.playLeakDetectedSound();
         }
 

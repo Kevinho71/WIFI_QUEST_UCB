@@ -6,6 +6,7 @@ export interface ChatMessage {
   content: string;
   blockedByFirewall?: boolean;
   leakDetected?: boolean;
+  leakBlocked?: boolean;
   provider?: string;
   timestamp: number;
 }
@@ -51,6 +52,8 @@ export interface ChatApiResponse {
   reply: string;
   blockedByFirewall: boolean;
   leakDetected?: boolean;
+  victory?: boolean;
+  leakBlocked?: boolean;
   providerUsed?: string;
   provider?: string;
   error?: string;
