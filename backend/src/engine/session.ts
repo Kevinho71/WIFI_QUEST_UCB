@@ -24,7 +24,7 @@ export interface SessionState {
   currentMessage: string; // último mensaje user
 }
 
-function defaultBounds(active: PasswordFragment | null): { lo: number; hi: number } {
+export function defaultBounds(active: PasswordFragment | null): { lo: number; hi: number } {
   if (active && active.type === 'number') {
     const d = active.value.length;
     return { lo: 10 ** (d - 1), hi: 10 ** d - 1 };
