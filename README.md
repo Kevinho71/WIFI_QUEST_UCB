@@ -73,6 +73,28 @@ La aplicación ofrece dos experiencias independientes y diferenciadas que se eli
 
 ---
 
+## 🧩 Motor Nivel 1 v2 — "el backend arbitra, el LLM redacta"
+
+El Nivel 1 usa un motor determinista (carpeta `backend/src/engine/`) donde el backend
+decide **todo** (veredictos, progreso, victoria) y el LLM solo redacta la voz de Lucas:
+
+- `blueprint.ts` — plano inmutable de la clave (fragmentos, cola barajada, pistas).
+- `session.ts` — replay del estado desde el historial (no confía en el turno del cliente).
+- `matching.ts` / `intent.ts` — matching v2, veredicto mayor/menor, cercanía y hechos.
+- `events.ts` / `prompts.ts` — evento del turno y prompt mínimo (≈150-200 palabras).
+- `guards.ts` / `templates.ts` — validación dura de la respuesta y plantillas de respaldo.
+- `orchestrator.ts` — `processLevel1V2()`: reintento + fallback + `gameState`.
+
+Rollout por variable de entorno `LEVEL1_ENGINE`:
+
+| Valor | Comportamiento |
+|---|---|
+| `v2` (default) | Motor v2. |
+| `v1` | Kill-switch de rollback: motor legado. |
+| `shadow` | Responde v1 pero loguea el prompt v2 y sus guardas (migración). |
+
+---
+
 ## 🚀 Inicio Rápido (Backend - Desarrollo Local)
 
 ### 1. Variables de Entorno

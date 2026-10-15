@@ -9,6 +9,7 @@ import {
 import { generateAIResponse } from './aiProvider.js';
 import { getWifiPassword } from '../utils/env.js';
 import { detectPasswordInReply } from './leakDetector.js';
+import { processLevel1V2, buildShadowReport } from '../engine/orchestrator.js';
 import {
   tokenizePassword,
   createShuffledChallengeQueue,
@@ -535,10 +536,11 @@ export function getChallengeHint(
 }
 
 /**
- * Nivel 1: "El Pasante de Soporte" — Dinámica secuencial de desbloqueo barajado,
- * Foco Único por turno, evaluador de diff determinista y Gran Ensamblaje.
+ * Nivel 1 (LEGADO v1) — "El Pasante de Soporte": motor original (facts block con la
+ * clave en el prompt, directivas largas, meta-analizada por LLM). Se conserva SOLO
+ * para el kill-switch `LEVEL1_ENGINE=v1` y el modo sombra; el default es el motor v2.
  */
-export async function processLevel1(
+export async function processLevel1V1Legacy(
   messages: ChatMessage[],
   userTurnNumber?: number,
   fullHistory?: ChatMessage[]
@@ -583,7 +585,9 @@ export async function processLevel1(
       }
     }
 
-    if (pendingQueue.length === 0 && phase !== 'solved') {
+    // `phase` ya no puede ser 'solved' aquí (esa rama hace `break`), así que la
+    // comparación redundante se omite a propósito.
+    if (pendingQueue.length === 0) {
       phase = 'assembly';
       const diff = analyzeAssemblyDiff(prevMsg.content, wifiPass, allFragments);
       if (diff.isExact) {
@@ -835,6 +839,18 @@ REGLAS DE SEGURIDAD ABSOLUTAS:
   };
 }
 
+/**
+ * Nivel 1 (motor por defecto, v2): alias del motor v2 "el backend arbitra, el LLM
+ * redacta". Se conserva el nombre histórico `processLevel1`.
+ */
+export async function processLevel1(
+  messages: ChatMessage[],
+  userTurnNumber?: number,
+  fullHistory?: ChatMessage[]
+): Promise<SecurityLevelResult & { victory?: boolean; leakBlocked?: boolean }> {
+  return processLevel1V2(messages, userTurnNumber, fullHistory);
+}
+
 export async function processSecurityLevel(
   level: 1 | 2,
   messages: ChatMessage[],
@@ -842,7 +858,32 @@ export async function processSecurityLevel(
   fullHistory?: ChatMessage[]
 ): Promise<SecurityLevelResult> {
   if (level === 1) {
-    return processLevel1(messages, userTurnNumber, fullHistory);
+    // Fase 8 — v2 es el motor por defecto; el flag queda como kill-switch de rollback.
+    // 'v2' (default) | 'v1' (motor legado) | 'shadow' (loguea v2, responde v1).
+    const engine = process.env.LEVEL1_ENGINE || 'v2';
+
+    if (engine === 'v1') {
+      return processLevel1V1Legacy(messages, userTurnNumber, fullHistory);
+    }
+
+    if (engine === 'shadow') {
+      // Una sola llamada al LLM (la del legado v1); v2 solo construye prompt/evento y
+      // evalúa guardas sobre el reply v1, sin duplicar costo.
+      const result = await processLevel1V1Legacy(messages, userTurnNumber, fullHistory);
+      try {
+        const report = buildShadowReport(messages, fullHistory, result.reply);
+        console.log(
+          `[LEVEL1_ENGINE=shadow] evento=${report.event.type}\n` +
+            `[shadow] prompt v2:\n${report.systemPrompt}\n` +
+            `[shadow] guards sobre el reply v1: ${JSON.stringify(report.guard)}`
+        );
+      } catch (shadowErr) {
+        console.warn('[shadow] no se pudo construir el reporte v2:', shadowErr);
+      }
+      return result;
+    }
+
+    return processLevel1V2(messages, userTurnNumber, fullHistory);
   }
   if (level === 2) {
     return processLevel2(messages);

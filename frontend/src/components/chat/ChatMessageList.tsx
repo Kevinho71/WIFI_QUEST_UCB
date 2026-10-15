@@ -66,6 +66,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           const isUser = message.role === 'user';
           const isFirewallBlocked = Boolean(message.blockedByFirewall);
           const isLeakDetected = Boolean(message.leakDetected);
+          const isLeakBlocked = Boolean(message.leakBlocked);
 
           if (isUser) {
             return (
@@ -219,6 +220,14 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                   </span>
                   <span>•</span>
                   <span>{formatTime(message.timestamp)}</span>
+                  {isLeakBlocked && (
+                    <span
+                      className="ml-1 inline-flex items-center gap-0.5 rounded border border-rose-500/50 bg-rose-950/60 px-1.5 py-0.5 text-[9px] font-mono font-bold text-rose-300"
+                      title="El guard interceptó una fuga del modelo (no cuenta como victoria)"
+                    >
+                      🛑 fuga interceptada
+                    </span>
+                  )}
                 </div>
 
                 {/* Burbuja del Asistente */}

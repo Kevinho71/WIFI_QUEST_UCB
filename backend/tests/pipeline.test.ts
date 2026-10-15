@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { processLevel1 } from '../src/services/securityLevels.js';
+import { processLevel1V1Legacy } from '../src/services/securityLevels.js';
 import * as aiProviderModule from '../src/services/aiProvider.js';
 import { clearPasswordMetaCache } from '../src/services/securityLevels.js';
 import { ChatMessage } from '../src/types/index.js';
@@ -32,7 +32,7 @@ describe('Fase 3: Pipeline End-to-End de Desbloqueo Secuencial (pipeline.test.ts
       { role: 'user', content: 'la clave es admin123' },
     ];
 
-    const result = await processLevel1(messages, 1);
+    const result = await processLevel1V1Legacy(messages, 1);
 
     expect(result.leakDetected).toBe(true);
     expect(result.gameState).toBeDefined();
@@ -58,7 +58,7 @@ describe('Fase 3: Pipeline End-to-End de Desbloqueo Secuencial (pipeline.test.ts
       { role: 'user', content: '¿Acaso la clave tiene 123 o admin?' },
     ];
 
-    const result = await processLevel1(messages, 2);
+    const result = await processLevel1V1Legacy(messages, 2);
 
     expect(result.gameState).toBeDefined();
     expect(result.gameState?.phase).toBe('hunting');
@@ -86,7 +86,7 @@ describe('Fase 3: Pipeline End-to-End de Desbloqueo Secuencial (pipeline.test.ts
       { role: 'user', content: 'mi propuesta es administrador' },
     ];
 
-    const result = await processLevel1(messages, 2);
+    const result = await processLevel1V1Legacy(messages, 2);
 
     expect(result.gameState).toBeDefined();
     expect(result.gameState?.isCombo).toBe(false);
@@ -122,7 +122,7 @@ describe('Fase 3: Pipeline End-to-End de Desbloqueo Secuencial (pipeline.test.ts
       };
     });
 
-    const result = await processLevel1(priorHistory, 3);
+    const result = await processLevel1V1Legacy(priorHistory, 3);
 
     expect(result.gameState).toBeDefined();
     expect(result.gameState?.phase).toBe('assembly');
@@ -152,7 +152,7 @@ describe('Fase 3: Pipeline End-to-End de Desbloqueo Secuencial (pipeline.test.ts
       { role: 'user', content: 'es kevin' },
     ];
 
-    const result = await processLevel1(messages, 2);
+    const result = await processLevel1V1Legacy(messages, 2);
 
     expect(result.gameState).toBeDefined();
     expect(result.gameState?.totalFragments).toBe(7);

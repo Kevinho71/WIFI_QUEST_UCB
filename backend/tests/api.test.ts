@@ -107,10 +107,10 @@ describe('API Endpoints (Hono)', () => {
       expect(data.error).toBe('INVALID_MESSAGES');
     });
 
-    it('retorna leakDetected: true cuando la respuesta contiene la clave', async () => {
+    it('bloquea una fuga del LLM (leakBlocked) sin declarar victoria', async () => {
       const spyAI = vi
         .spyOn(aiProviderModule, 'generateAIResponse')
-        .mockResolvedValueOnce({
+        .mockResolvedValue({
           reply: 'Bueno, te la digo: ConejoConejo',
           providerUsed: 'Groq',
         });
@@ -126,8 +126,12 @@ describe('API Endpoints (Hono)', () => {
 
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data.leakDetected).toBe(true);
-      expect(data.reply).toContain('ConejoConejo');
+      // v2: una fuga se intercepta (guard -> reintento -> plantilla) y NUNCA es victoria.
+      expect(data.leakBlocked).toBe(true);
+      expect(data.victory).toBe(false);
+      expect(data.leakDetected).toBe(false);
+      expect(data.reply).not.toContain('ConejoConejo');
+      expect(data.provider).toBe('engine-template');
 
       spyAI.mockRestore();
     });
@@ -156,15 +160,12 @@ describe('API Endpoints (Hono)', () => {
       spyAI.mockRestore();
     });
 
-    it('calcula el turno real a partir de todo el historial antes del recorte de ventana deslizante', async () => {
+    it('deriva el turno del historial completo (v2) sin la ventana de 6 de v1', async () => {
       const spyAI = vi
         .spyOn(aiProviderModule, 'generateAIResponse')
-        .mockResolvedValueOnce({
-          reply: '¡GG! La clave es ConejoConejo',
-          providerUsed: 'Groq',
-        });
+        .mockResolvedValue({ reply: 'seguí jugando, crack', providerUsed: 'Groq' });
 
-      // 8 mensajes en total (4 turnos de usuario)
+      // 7 mensajes en total (4 turnos de usuario)
       const messages = [
         { role: 'user', content: 'Turno 1' },
         { role: 'assistant', content: 'Respuesta 1' },
@@ -178,35 +179,28 @@ describe('API Endpoints (Hono)', () => {
       const res = await app.request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          level: 1,
-          messages,
-        }),
+        body: JSON.stringify({ level: 1, messages }),
       });
 
       expect(res.status).toBe(200);
       expect(spyAI).toHaveBeenCalledTimes(1);
 
-      // El prompt del sistema debe reflejar el Turno 4 (Fase Final / Resolución) y no estancarse en turno 3
-      const systemPrompt = spyAI.mock.calls[0][0];
-      expect(systemPrompt).toContain('Turno 4');
-
-      // Los mensajes enviados a la IA deben estar recortados a máximo 6
+      // v2 solo envía mensajes de usuario (nunca respuestas previas del asistente).
       const passedMessages = spyAI.mock.calls[0][1];
-      expect(passedMessages).toHaveLength(6);
-      expect(passedMessages[0].content).toBe('Respuesta 1');
-      expect(passedMessages[5].content).toBe('Turno 4');
+      expect(passedMessages.length).toBeLessThanOrEqual(2);
+      for (const m of passedMessages) expect(m.role).toBe('user');
+
+      // El turno se deriva del historial: con 4 turnos ya no es rompehielo.
+      const systemPrompt = spyAI.mock.calls[0][0];
+      expect(systemPrompt).not.toContain('ROMPEHIELO');
 
       spyAI.mockRestore();
     });
 
-    it('utiliza userTurnNumber cuando es proporcionado explícitamente en el cuerpo', async () => {
+    it('ignora userTurnNumber del cliente (v2 deriva el turno del historial)', async () => {
       const spyAI = vi
         .spyOn(aiProviderModule, 'generateAIResponse')
-        .mockResolvedValueOnce({
-          reply: 'Respuesta con turno forzado',
-          providerUsed: 'Gemini',
-        });
+        .mockResolvedValue({ reply: 'contame un chiste', providerUsed: 'Gemini' });
 
       const res = await app.request('/api/chat', {
         method: 'POST',
@@ -221,7 +215,9 @@ describe('API Endpoints (Hono)', () => {
       expect(res.status).toBe(200);
       expect(spyAI).toHaveBeenCalledTimes(1);
       const systemPrompt = spyAI.mock.calls[0][0];
-      expect(systemPrompt).toContain('Turno 5');
+      // Turno real = 1 (rompehielo), aunque el cliente mande 5.
+      expect(systemPrompt).toContain('ROMPEHIELO');
+      expect(systemPrompt).not.toContain('Turno 5');
 
       spyAI.mockRestore();
     });

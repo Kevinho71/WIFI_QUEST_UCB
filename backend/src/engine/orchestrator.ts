@@ -25,6 +25,63 @@ import { renderTemplate } from './templates.js';
  * plantilla) → respuesta. El backend decide TODO; el LLM solo redacta.
  */
 
+/** Métricas acumuladas en módulo (Fase 8, punto 4): contadores por request. */
+export interface EngineMetrics {
+  requests: number;
+  promptedWords: number;
+  guardsTriggered: number;
+  retries: number;
+  leaksBlocked: number;
+}
+
+const metrics: EngineMetrics = {
+  requests: 0,
+  promptedWords: 0,
+  guardsTriggered: 0,
+  retries: 0,
+  leaksBlocked: 0,
+};
+
+export function getEngineMetrics(): EngineMetrics {
+  return { ...metrics };
+}
+
+export function __resetEngineMetricsForTests(): void {
+  metrics.requests = 0;
+  metrics.promptedWords = 0;
+  metrics.guardsTriggered = 0;
+  metrics.retries = 0;
+  metrics.leaksBlocked = 0;
+}
+
+/** Fase 8 — reporte del modo sombra: pipeline v2 SIN llamar al LLM + guardas sobre el reply v1. */
+export interface ShadowReport {
+  event: TurnEvent;
+  systemPrompt: string;
+  guard: ReturnType<typeof validateReply>;
+}
+
+export function buildShadowReport(
+  messages: ChatMessage[],
+  fullHistory: ChatMessage[] | undefined,
+  v1Reply: string
+): ShadowReport {
+  const blueprint = getBlueprint();
+  const history = fullHistory && fullHistory.length ? fullHistory : messages;
+  const state0 = replayState(history, blueprint);
+  const { event, stateAfter } = deriveEvent(state0, blueprint);
+  const prompt = buildPrompt(event, stateAfter, history, blueprint);
+  const ctx: GuardContext = {
+    phase: stateAfter.phase,
+    event,
+    userMessage: stateAfter.currentMessage,
+    datosBlock: prompt.datosBlock,
+    blueprint,
+    pending: stateAfter.pending,
+  };
+  return { event, systemPrompt: prompt.systemPrompt, guard: validateReply(v1Reply, ctx) };
+}
+
 /** Pista descriptiva del reto en curso (misma lógica que `getChallengeHint` de v1). */
 function challengeHint(active: PasswordFragment | null, phase: SessionState['phase']): string {
   if (phase === 'negotiation') return 'Rompe el hielo con Lucas (envía una excusa o chiste)';
@@ -124,6 +181,8 @@ export async function processLevel1V2(
   let reply = '';
   let provider = 'engine-template';
   let leakBlocked = false;
+  let guardsTriggered = 0;
+  let retried = false;
 
   const attempt1 = await safeGenerate(prompt.systemPrompt, prompt.messagesForAI, {
     temperature: prompt.temperature,
@@ -136,6 +195,8 @@ export async function processLevel1V2(
       reply = first.corrected;
       provider = attempt1.providerUsed;
     } else {
+      guardsTriggered += 1;
+      retried = true;
       if (first.leak) leakBlocked = true;
 
       const correction = `\nCORRECCIÓN: tu respuesta anterior fue inválida porque ${first.reason}. Reescribila cumpliendo DATOS DEL SISTEMA.`;
@@ -149,8 +210,9 @@ export async function processLevel1V2(
         if (second.ok) {
           reply = second.corrected;
           provider = attempt2.providerUsed;
-        } else if (second.leak) {
-          leakBlocked = true;
+        } else {
+          guardsTriggered += 1;
+          if (second.leak) leakBlocked = true;
         }
       }
     }
@@ -163,6 +225,20 @@ export async function processLevel1V2(
 
   const gameState = buildGameState(state0, stateAfter, event, blueprint);
   const solved = stateAfter.phase === 'solved';
+
+  // Fase 8 — métricas: contadores por request, acumulados en módulo.
+  const promptWords = prompt.systemPrompt.split(/\s+/).filter(Boolean).length;
+  metrics.requests += 1;
+  metrics.promptedWords += promptWords;
+  metrics.guardsTriggered += guardsTriggered;
+  if (retried) metrics.retries += 1;
+  if (leakBlocked) metrics.leaksBlocked += 1;
+  console.log(
+    `[v2 metrics] evento=${event.type} palabras=${promptWords} provider=${provider} ` +
+      `| acumulado: requests=${metrics.requests} palabrasTotales=${metrics.promptedWords} ` +
+      `guards=${metrics.guardsTriggered} reintentos=${metrics.retries} ` +
+      `fugasBloqueadas=${metrics.leaksBlocked}`
+  );
 
   return {
     reply,

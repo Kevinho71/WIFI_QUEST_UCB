@@ -6,7 +6,7 @@ import {
   analyzeAssemblyDiff,
 } from '../src/services/fragmentService.js';
 import {
-  processLevel1,
+  processLevel1V1Legacy,
   clearPasswordMetaCache,
   getLevel1TurnDirective,
 } from '../src/services/securityLevels.js';
@@ -140,7 +140,7 @@ describe('Fase 6: Pruebas de Integración End-to-End y Validación', () => {
           providerUsed: 'mock-test',
         });
 
-        const result = await processLevel1(
+        const result = await processLevel1V1Legacy(
           [{ role: 'user', content: 'sé que la clave es admin123' }],
           1
         );
