@@ -208,13 +208,16 @@ describe('Fase 2: Prompting Focalizado y Evaluador de Ensamblaje', () => {
   });
 
   describe('Integración de Modo Ensamblaje en getLevel1TurnDirective', () => {
-    it('genera directiva de ensamblaje con diagnóstico quirúrgico sin revelar la clave', () => {
+    it('genera directiva de ensamblaje con diagnóstico quirúrgico, expediente del secreto y formato sintáctico', () => {
       const directive = getLevel1TurnDirective(5, fullPass, fullPass.length, 'kevin', true, undefined, undefined, {
         phase: 'assembly',
         discoveredFragments: fragments,
         assemblyDiffAdvice: "Revisa la posición de '@' y '#', están invertidos.",
       });
 
+      expect(directive).toContain('EXPEDIENTE SECRETO Y HECHOS INMUTABLES (VERDAD DEL SISTEMA)');
+      expect(directive).toContain(`Contraseña exacta y única: "${fullPass}"`);
+      expect(directive).toContain('Estructura y formato sintáctico');
       expect(directive).toContain('DIRECTIVA DE FASE FINAL: EL GRAN ENSAMBLAJE');
       expect(directive).toContain('DIAGNÓSTICO QUIRÚRGICO DEL INTENTO PREVIO');
       expect(directive).toContain("Revisa la posición de '@' y '#', están invertidos.");

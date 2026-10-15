@@ -524,5 +524,25 @@ describe('Security Levels & Guardrails', () => {
 
       spyAI.mockRestore();
     });
+
+    it('intercepta alucinación de falsa victoria del LLM cuando el usuario no ha ganado según el backend', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValueOnce({
+          reply: 'GG, crack. ¡Ese es el código exacto! El sistema lo validó y la red WiFi ya está desbloqueada para ti.',
+          providerUsed: 'Groq',
+        });
+
+      const result = await processLevel1(
+        [{ role: 'user', content: '¿me das una pista?' }],
+        2
+      );
+
+      expect(result.leakDetected).toBe(false);
+      expect(result.reply).not.toContain('desbloqueada');
+      expect(result.reply).toContain('¡Casi, crack!');
+
+      spyAI.mockRestore();
+    });
   });
 });
