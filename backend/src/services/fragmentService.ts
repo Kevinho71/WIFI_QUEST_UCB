@@ -1,4 +1,5 @@
 import {
+  ChatMessage,
   FragmentEvaluationResult,
   FragmentType,
   PasswordFragment,
@@ -290,3 +291,239 @@ export function evaluateTurnProgression({
     evaluation,
   };
 }
+
+/**
+ * 2.3 Aislamiento de Contexto para Ensamblaje:
+ * Descarta el historial ruidoso de adivinanzas previas (chistes, adivinanzas de números individuales)
+ * al entrar a la fase 'assembly', conservando únicamente la interacción inmediata de ensamblaje.
+ */
+export function pruneHistoryForAssembly(messages: ChatMessage[]): ChatMessage[] {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return [];
+  }
+
+  const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user');
+  if (lastUserIdx === -1) {
+    return messages.slice(-2);
+  }
+
+  // Conservar como máximo el mensaje previo del asistente y el intento actual del usuario
+  const startIndex = Math.max(0, lastUserIdx - 1);
+  return messages.slice(startIndex);
+}
+
+export interface AssemblyDiffResult {
+  isExact: boolean;
+  diagnosis: string;
+  details: {
+    missingFragments?: string[];
+    invertedSymbols?: string[];
+    extraneousChars?: string[];
+    hasSpaces?: boolean;
+    caseMismatch?: boolean;
+    orderAdvice?: string;
+  };
+}
+
+/**
+ * 2.4 Evaluador de Diff Determinista (analyzeAssemblyDiff):
+ * Compara el intento de ensamblaje del usuario contra la contraseña real y genera
+ * un diagnóstico quirúrgico y amigable (espacios, caracteres intrusos, partes faltantes o símbolos invertidos).
+ */
+export function analyzeAssemblyDiff(
+  attempt: string,
+  realPassword: string,
+  fragments?: PasswordFragment[]
+): AssemblyDiffResult {
+  const cleanAttempt = (attempt || '').trim();
+  const cleanReal = (realPassword || '').trim();
+  const tokenList =
+    fragments && fragments.length > 0 ? fragments : tokenizePassword(cleanReal);
+
+  // 1. Coincidencia exacta
+  if (cleanAttempt === cleanReal) {
+    return {
+      isExact: true,
+      diagnosis:
+        '¡Combinación perfecta y exacta! Has ensamblado la clave correctamente.',
+      details: {},
+    };
+  }
+
+  // 2. Coincidencia ignorando espacios
+  if (cleanAttempt.replace(/\s+/g, '') === cleanReal) {
+    return {
+      isExact: false,
+      diagnosis:
+        'Tienes todas las piezas en el orden correcto, pero agregaste espacios entre ellas. La contraseña WiFi debe ir completamente unida sin espacios.',
+      details: { hasSpaces: true },
+    };
+  }
+
+  // 3. Coincidencia ignorando mayúsculas/minúsculas
+  if (cleanAttempt.toLowerCase() === cleanReal.toLowerCase()) {
+    return {
+      isExact: false,
+      diagnosis:
+        'El orden y los caracteres son correctos, pero hay diferencias en las mayúsculas y minúsculas. Revisa cómo escribiste las palabras.',
+      details: { caseMismatch: true },
+    };
+  }
+
+  const noSpacesAttempt = cleanAttempt.replace(/\s+/g, '');
+
+  // 4. Caracteres intrusos (caracteres presentes en attempt que no pertenecen a realPassword)
+  const allowedChars = new Map<string, number>();
+  for (const ch of cleanReal) {
+    allowedChars.set(ch, (allowedChars.get(ch) || 0) + 1);
+  }
+
+  const attemptCharCounts = new Map<string, number>();
+  for (const ch of noSpacesAttempt) {
+    attemptCharCounts.set(ch, (attemptCharCounts.get(ch) || 0) + 1);
+  }
+
+  const extraneousChars: string[] = [];
+  for (const [ch, count] of attemptCharCounts.entries()) {
+    const allowed = allowedChars.get(ch) || 0;
+    if (count > allowed) {
+      extraneousChars.push(ch);
+    }
+  }
+
+  if (extraneousChars.length > 0) {
+    return {
+      isExact: false,
+      diagnosis: `Detecté caracteres extra que no pertenecen a las piezas descubiertas: [${extraneousChars
+        .map((c) => `'${c}'`)
+        .join(', ')}]. Retíralos de tu combinación.`,
+      details: { extraneousChars },
+    };
+  }
+
+  // 5. Partes faltantes (fragmentos que faltan en el intento)
+  const missingFragments: string[] = [];
+  let remainingAttempt = noSpacesAttempt;
+
+  for (const frag of tokenList) {
+    const idx = remainingAttempt.indexOf(frag.value);
+    if (idx !== -1) {
+      remainingAttempt =
+        remainingAttempt.slice(0, idx) +
+        remainingAttempt.slice(idx + frag.value.length);
+    } else {
+      missingFragments.push(frag.value);
+    }
+  }
+
+  if (missingFragments.length > 0) {
+    return {
+      isExact: false,
+      diagnosis: `Te faltan piezas por incluir en la combinación: [${missingFragments
+        .map((f) => `'${f}'`)
+        .join(', ')}]. Debes usar todos los fragmentos descubiertos.`,
+      details: { missingFragments },
+    };
+  }
+
+  // 6. Piezas o símbolos invertidos / fuera de orden
+  const invertedSymbols: string[] = [];
+  for (let i = 0; i < tokenList.length - 1; i++) {
+    const current = tokenList[i].value;
+    const next = tokenList[i + 1].value;
+    if (
+      noSpacesAttempt.includes(next + current) &&
+      !cleanReal.includes(next + current)
+    ) {
+      invertedSymbols.push(current, next);
+    }
+  }
+
+  if (invertedSymbols.length > 0) {
+    const uniqueInverted = Array.from(new Set(invertedSymbols));
+    return {
+      isExact: false,
+      diagnosis: `Tienes todas las piezas, pero algunas están invertidas o en orden incorrecto (revisa la posición de: [${uniqueInverted
+        .map((s) => `'${s}'`)
+        .join(', ')}]).`,
+      details: {
+        invertedSymbols: uniqueInverted,
+        orderAdvice: `Revisa el orden relativo entre ${uniqueInverted.join(' y ')}.`,
+      },
+    };
+  }
+
+  // 7. Diagnóstico general de orden sintáctico
+  return {
+    isExact: false,
+    diagnosis:
+      'Tienes todas las piezas necesarias, pero están en un orden diferente al de la contraseña real. Reorganiza las piezas pensando en su estructura sintáctica lógica.',
+    details: {
+      orderAdvice: 'Reorganiza los fragmentos en el orden sintáctico correcto.',
+    },
+  };
+}
+
+export interface LucasReactionOptions {
+  type: 'combo' | 'out_of_turn' | 'normal_hit' | 'future_diversion';
+  matchedFragments?: PasswordFragment[];
+  activeTarget?: PasswordFragment | null;
+  nextTarget?: PasswordFragment | null;
+  remainingCount?: number;
+}
+
+/**
+ * 2.2 Manejador de Respuestas Gamer:
+ * Genera directivas para que Lucas reaccione adecuadamente ante aciertos normales,
+ * combos dobles, hallazgos fuera de turno o desvíos cuando el usuario pregunta por pasos futuros.
+ */
+export function buildLucasReactionDirective(options: LucasReactionOptions): string {
+  const matchedTokens =
+    options.matchedFragments?.map((f) => `"${f.value}"`).join(', ') || '';
+  const nextDesc = options.nextTarget
+    ? `el siguiente objetivo: "${options.nextTarget.value}" (${
+        options.nextTarget.type === 'number'
+          ? `número de ${options.nextTarget.value.length} dígitos`
+          : options.nextTarget.type === 'word'
+          ? `palabra de ${options.nextTarget.value.length} letras`
+          : 'símbolo especial'
+      })`
+    : 'el siguiente reto pendiente';
+
+  switch (options.type) {
+    case 'combo':
+      return `### REACCIÓN GAMER OBLIGATORIA (COMBO MÚLTIPLE) ###
+- ¡COMBO DOBLE/MÚLTIPLE LOGRADO! El usuario acaba de acertar varias piezas en este solo mensaje: [${matchedTokens}].
+- Reacciona con gran entusiasmo gamer de Lucas ("¡Upa, combo doble crack! Le pegaste al objetivo actual y de paso le atinaste a otra pieza sin querer. Te anoto ambas en la mochila.").
+- Confirma las piezas agregadas al inventario y reorienta inmediatamente la atención hacia ${nextDesc}.${
+        options.remainingCount !== undefined
+          ? ` Ya solo faltan ${options.remainingCount} fragmentos.`
+          : ''
+      }`;
+
+    case 'out_of_turn':
+      return `### REACCIÓN GAMER OBLIGATORIA (ACIERTO ADELANTADO FUERA DE TURNO) ###
+- El usuario acertó por casualidad una pieza futura: [${matchedTokens}], pero NO la pieza activa en juego.
+- Reacciona celebrando con humor gamer su puntería ("¡Ey, te me adelantaste a la jugada pero diste en el blanco con esa pieza! Te la guardo en el inventario.").
+- Reorienta amistosamente al usuario para volver al objetivo activo actual: ${
+        options.activeTarget ? `"${options.activeTarget.value}"` : 'el objetivo en curso'
+      }. No te desvíes.`;
+
+    case 'normal_hit':
+      return `### REACCIÓN GAMER OBLIGATORIA (PIEZA CONSEGUIDA) ###
+- El usuario acertó la pieza activa: [${matchedTokens}].
+- Felicítalo con tono gamer ("¡Buena jugada, crack! Pieza asegurada en tu inventario.").
+- Inmediatamente presenta la pista o enigma para ${nextDesc}.`;
+
+    case 'future_diversion':
+      return `### REACCIÓN ANTE PREGUNTAS POR PASOS FUTUROS ###
+- El usuario intenta adelantarse preguntando por pasos o piezas futuras.
+- Responde con humor gamer reorientándolo: "Paso a paso, crack. No te adelantes a la jugada; primero concéntrate en resolver el reto en curso: ${
+        options.activeTarget ? options.activeTarget.value : 'el objetivo activo'
+      }".`;
+
+    default:
+      return '';
+  }
+}
+
