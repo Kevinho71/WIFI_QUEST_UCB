@@ -67,6 +67,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           const isFirewallBlocked = Boolean(message.blockedByFirewall);
           const isLeakDetected = Boolean(message.leakDetected);
           const isLeakBlocked = Boolean(message.leakBlocked);
+          const isVictory = Boolean(message.victory);
 
           if (isUser) {
             return (
@@ -137,8 +138,71 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             );
           }
 
-          // Mensaje del Asistente con Fuga de Contraseña Detectada (Victoria Parcial)
-          if (isLeakDetected) {
+          // Mensaje del Asistente de VICTORIA LEGÍTIMA (motor v2: victory === true)
+          if (isVictory) {
+            return (
+              <div key={message.id} className="flex justify-start animate-in zoom-in-95 duration-300">
+                <div className="max-w-[92%] sm:max-w-[85%] space-y-1.5">
+                  {/* Header Verde Neón Brillante */}
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono text-emerald-400 font-bold">
+                    <div className="flex size-4 items-center justify-center rounded bg-emerald-950 text-emerald-400 border border-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+                      <Unlock className="size-2.5 animate-pulse" />
+                    </div>
+                    <span>🎉 ¡VICTORIA! ACCESO CONCEDIDO</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-muted-foreground font-normal">{formatTime(message.timestamp)}</span>
+                  </div>
+
+                  {/* Burbuja de victoria */}
+                  <div className="rounded-2xl rounded-tl-xs border-2 border-emerald-500 bg-emerald-950/40 px-4 py-3 text-xs sm:text-sm text-emerald-100 shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-2">
+                    <div className="flex items-center justify-between border-b border-emerald-500/30 pb-1.5 font-mono text-xs font-bold text-emerald-300">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="size-3.5 text-emerald-400" />
+                        <span>{activeConfig.targetPersona} (Victoria)</span>
+                      </div>
+                      <span className="text-[10px] rounded bg-emerald-900/60 px-1.5 py-0.5 text-emerald-200 font-mono">
+                        Victoria
+                      </span>
+                    </div>
+
+                    <p className="whitespace-pre-wrap break-words font-sans leading-relaxed text-emerald-50">
+                      {message.content}
+                    </p>
+                  </div>
+
+                  {/* Banner de acción: validar la clave */}
+                  <div className="rounded-xl border border-emerald-500/60 bg-gradient-to-r from-emerald-950/90 via-emerald-900/60 to-emerald-950/90 p-3 shadow-[0_0_20px_rgba(16,185,129,0.25)] space-y-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-base shrink-0 leading-none mt-0.5">🏆</span>
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-semibold text-emerald-200">
+                            ¡Descifraste la clave! El juego terminó y ganaste legítimamente.
+                          </p>
+                          <p className="text-[11px] text-emerald-300/80 font-mono">
+                            Valídala para desbloquear el WiFi institucional.
+                          </p>
+                        </div>
+                      </div>
+                      {onOpenValidator && (
+                        <button
+                          type="button"
+                          onClick={onOpenValidator}
+                          className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-mono text-xs font-bold px-3 py-1.5 shadow-[0_0_14px_rgba(16,185,129,0.45)] transition-all cursor-pointer"
+                        >
+                          <KeyRound className="size-3.5" />
+                          <span>Ir a Validar Contraseña</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Mensaje del Asistente con Fuga de Contraseña Detectada (v1 / fuga interceptada)
+          if (isLeakDetected && !isVictory) {
             return (
               <div key={message.id} className="flex justify-start animate-in zoom-in-95 duration-300">
                 <div className="max-w-[92%] sm:max-w-[85%] space-y-1.5">

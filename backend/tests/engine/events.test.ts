@@ -106,6 +106,19 @@ describe('Fase 4: engine/events (deriveEvent)', () => {
       expect(event.type).toBe('victory');
       expect(stateAfter.phase).toBe('solved');
     });
+
+    it('una petición de pista de orden produce assembly_hint sin consumir intento', () => {
+      const bp = buildBlueprint(KEY);
+      const history = withCurrent(
+        prefixAllUnlocked(bp),
+        'dame una pista del orden, hay demasiadas posibilidades'
+      );
+      const state0 = replayState(history, bp);
+      const { event, stateAfter } = deriveEvent(state0, bp);
+      expect(event.type).toBe('assembly_hint');
+      expect(stateAfter.assemblyAttempts).toBe(state0.assemblyAttempts);
+      if (event.type === 'assembly_hint') expect(event.orderHint.length).toBeGreaterThan(0);
+    });
   });
 
   describe('pista de orden progresiva (sin valores)', () => {

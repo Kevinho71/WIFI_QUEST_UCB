@@ -144,4 +144,30 @@ describe('Fase 5: engine/guards', () => {
       expect(corrected.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(65);
     });
   });
+
+  describe('reconocimiento de la pieza (piece_hit)', () => {
+    const word = bp.queue.find((f) => f.type === 'word')!;
+    const { ctx } = makeCtx(bp, huntingPrefix(bp, (f) => f === word), word.value);
+
+    it('rechaza una respuesta que ignora la pieza conseguida', () => {
+      const res = validateReply('¡Buena jugada, crack! Seguí así 🎮', ctx);
+      expect(res).toMatchObject({ ok: false });
+      if (!res.ok) expect(res.reason).toContain('pieza');
+    });
+
+    it('acepta una respuesta que cita la pieza conseguida', () => {
+      expect(validateReply(`¡Fino! "${word.value}" en tu mochila 🔥`, ctx)).toEqual({ ok: true });
+    });
+  });
+
+  it('rechaza el volcado verbatim del bloque de DATOS (≥2 etiquetas)', () => {
+    const { ctx } = makeCtx(
+      bp,
+      huntingPrefix(bp, (f) => f.type === 'symbol'),
+      'no tengo idea'
+    );
+    const res = validateReply('Piezas acertadas: algo. Tipo de jugada: normal.', ctx);
+    expect(res).toMatchObject({ ok: false });
+    if (!res.ok) expect(res.reason).toContain('DATOS');
+  });
 });

@@ -13,6 +13,7 @@ import {
 import {
   classifyIntent,
   classifyNumericProperty,
+  isOrderHintRequest,
   numericFact,
   numericVerdict,
   proximity,
@@ -72,6 +73,7 @@ export type TurnEvent =
       level: 1 | 2 | 3;
       orderHint: string;
     }
+  | { type: 'assembly_hint'; level: 1 | 2 | 3; orderHint: string }
   | { type: 'ask_length'; dato: string }
   | { type: 'ask_property'; factText: string }
   | { type: 'ask_future'; activeDesc: string }
@@ -330,6 +332,20 @@ export function deriveEvent(
   }
 
   // 4) Assembly
+  // Un pedido de pista de orden NO es un intento: se entrega la pista sin diff ni
+  // consumir intento (evita diagnósticos absurdos tipo "caracteres extra: [...]").
+  if (isOrderHintRequest(current)) {
+    const attempts = state.assemblyAttempts;
+    return {
+      event: {
+        type: 'assembly_hint',
+        level: orderHintLevel(attempts),
+        orderHint: buildOrderHint(attempts, blueprint),
+      },
+      stateAfter: state,
+    };
+  }
+
   const diff = analyzeAssemblyDiff(current, blueprint.wifiPass, [...blueprint.fragments]);
   if (diff.isExact) {
     state.phase = 'solved';

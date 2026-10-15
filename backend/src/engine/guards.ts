@@ -1,6 +1,6 @@
 import { detectPasswordInReply } from '../services/leakDetector.js';
 import type { PasswordFragment } from '../types/index.js';
-import { normalizeAlnum } from '../utils/text.js';
+import { normalizeAlnum, normalizeForMatch } from '../utils/text.js';
 import type { Blueprint } from './blueprint.js';
 import type { TurnEvent } from './events.js';
 
@@ -36,6 +36,21 @@ const PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 
 const FALSE_WIN =
   /\b(gg|me ganaste|ganaste|acertaste|clave correcta|contrase[nñ]a correcta|c[oó]digo exacto|red\s+desbloqueada|ya puedes celebrar)\b/i;
+
+// Etiquetas internas del bloque DATOS DEL SISTEMA que el LLM NO debe recitar
+// (el volcado verbatim se detecta con 2+ coincidencias). Se excluyen a propósito
+// las que sí usan las plantillas ("Diagnóstico:", "Piezas bien ubicadas:", etc.).
+const DATOS_LABELS = [
+  /piezas acertadas\s*:/i,
+  /tipo de jugada\s*:/i,
+  /piezas restantes\s*:/i,
+  /siguiente reto\s*:/i,
+  /enigma de apertura/i,
+  /[aá]ngulo de pista/i,
+  /intentos fallidos\s*:/i,
+  /[uú]ltimo intento del usuario/i,
+  /referencia interna/i,
+];
 
 // Sustantivos de categoría vetados en los enigmas (se tolera el artículo intermedio:
 // "es un animal", "se trata de un planeta", "como una criatura"...).
@@ -154,18 +169,36 @@ export function validateReply(reply: string, ctx: GuardContext): GuardVerdict {
   const leak = detectLeak(text, ctx);
   if (leak) return { ok: false, reason: leak, leak: true };
 
-  // 4) Dígitos inventados: todo bloque debe existir en el mensaje del usuario o en DATOS
+  // 4) Anti-volcado: el LLM no debe recitar el bloque de DATOS DEL SISTEMA.
+  if (DATOS_LABELS.filter((re) => re.test(text)).length >= 2) {
+    return { ok: false, reason: 'repite el bloque de DATOS DEL SISTEMA' };
+  }
+
+  // 5) Reconocimiento (solo piece_hit): debe mencionar la(s) pieza(s) conseguida(s),
+  //    que el propio usuario escribió y ya vinieron en sus DATOS.
+  if (ctx.event.type === 'piece_hit') {
+    const normReply = normalizeForMatch(text);
+    const missing = ctx.event.typed
+      .split(/\s+/)
+      .filter(Boolean)
+      .find((tok) => !normReply.includes(normalizeForMatch(tok)));
+    if (missing) {
+      return { ok: false, reason: `no menciona la pieza conseguida ("${missing}")` };
+    }
+  }
+
+  // 6) Dígitos inventados: todo bloque debe existir en el mensaje del usuario o en DATOS
   const allowed = new Set([...digitBlocks(ctx.userMessage), ...digitBlocks(ctx.datosBlock)]);
   for (const block of digitBlocks(text)) {
     if (!allowed.has(block)) return { ok: false, reason: `dígito no autorizado: ${block}` };
   }
 
-  // 5) Falsa victoria (cualquier fase ≠ solved)
+  // 7) Falsa victoria (cualquier fase ≠ solved)
   if (ctx.phase !== 'solved' && FALSE_WIN.test(text)) {
     return { ok: false, reason: 'falsa victoria (el juego no ha terminado)' };
   }
 
-  // 6) Categoría revelada (solo enigmas de apertura/palabra/símbolo)
+  // 8) Categoría revelada (solo enigmas de apertura/palabra/símbolo)
   if (
     ctx.event.type === 'word_riddle' ||
     ctx.event.type === 'symbol_riddle' ||

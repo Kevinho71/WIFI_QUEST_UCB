@@ -34,6 +34,7 @@ export type TemplateKey =
   | 'ask_mask'
   | 'chitchat'
   | 'assembly_diff'
+  | 'assembly_hint'
   | 'victory';
 
 export const TEMPLATES: Record<TemplateKey, readonly [string, string, string]> = {
@@ -117,6 +118,11 @@ export const TEMPLATES: Record<TemplateKey, readonly [string, string, string]> =
     'Ojo: {diagnosis} 😅 Van {k} de {total} bien ubicadas. {orderHint}',
     'Casi: {diagnosis} 🔥 Correctas: {k}/{total}. {orderHint}',
   ],
+  assembly_hint: [
+    'Te dejo el mapa a medias, crack 🎮 {orderHint}',
+    'Pista de orden (nivel {n}): {orderHint} 🔥',
+    'Ahí va, sin regalarte nada: {orderHint} 👀',
+  ],
   victory: [
     '¡GG, me ganaste, crack! 🔥 La clave es "{wifiPass}". ¡Bienvenido a la red! 🎮',
     '¡Me hiciste rendirme como corresponde! 😅 Clave: "{wifiPass}". Disfrutá el WiFi 🔥',
@@ -187,6 +193,8 @@ function fillsFor(event: TurnEvent, blueprint: Blueprint): Record<string, string
         total: String(event.total),
         orderHint: event.orderHint,
       };
+    case 'assembly_hint':
+      return { orderHint: event.orderHint, n: String(event.level) };
     case 'victory':
       return { wifiPass: blueprint.wifiPass };
     default:

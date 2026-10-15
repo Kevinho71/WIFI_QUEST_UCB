@@ -175,6 +175,7 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           blockedByFirewall: response.blockedByFirewall,
           leakDetected: isLeak,
           leakBlocked,
+          victory: Boolean(response.victory),
           provider: response.providerUsed,
           timestamp: Date.now(),
         };

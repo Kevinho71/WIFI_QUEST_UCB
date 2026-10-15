@@ -65,6 +65,8 @@ function scenarioHistory(bp: Blueprint, key: TemplateKey): ChatMessage[] {
       return withCurrent(hunt((f) => f === last), last.value);
     case 'assembly_diff':
       return withCurrent(prefixAllUnlocked(bp), '#Fenix777!Quasar8128');
+    case 'assembly_hint':
+      return withCurrent(prefixAllUnlocked(bp), 'dame una pista del orden, hay demasiadas posibilidades');
     case 'victory':
       return withCurrent(prefixAllUnlocked(bp), KEY);
     case 'ask_length':

@@ -101,6 +101,7 @@ const EXPECTED_TEMP: Record<TurnEvent['type'], number> = {
   ask_length: 0.25,
   ask_property: 0.25,
   assembly_diff: 0.25,
+  assembly_hint: 0.25,
 };
 
 describe('Fase 4: engine/prompts (buildPrompt)', () => {
@@ -178,5 +179,49 @@ describe('Fase 4: engine/prompts (buildPrompt)', () => {
     expect(event.type).toBe('numeric_guess');
     expect(prompt.systemPrompt).toContain('MAYOR que 8075');
     expect(prompt.systemPrompt).not.toContain('8128');
+  });
+
+  it('piece_hit numérico: cita la pieza e incluye la mecánica mayor/menor', () => {
+    const state = replayState([NEG], bp);
+    const event: TurnEvent = {
+      type: 'piece_hit',
+      kind: 'normal',
+      typed: 'Quasar',
+      remaining: 3,
+      nextLabel: 'número de 4 dígitos',
+      nextAngle: null,
+    };
+    const prompt = buildPrompt(event, state, [NEG], bp);
+    expect(prompt.systemPrompt).toContain('Pieza conseguida: "Quasar"');
+    expect(prompt.systemPrompt).toContain('MAYOR o MENOR');
+  });
+
+  it('piece_hit out_of_turn: rotula el reto en curso y no lo anuncia como nuevo', () => {
+    const state = replayState([NEG], bp);
+    const event: TurnEvent = {
+      type: 'piece_hit',
+      kind: 'out_of_turn',
+      typed: '%',
+      remaining: 5,
+      nextLabel: 'número de 3 dígitos',
+      nextAngle: null,
+    };
+    const prompt = buildPrompt(event, state, [NEG], bp);
+    expect(prompt.systemPrompt).toContain('Reto en curso (NO cambió)');
+    expect(prompt.systemPrompt).not.toContain('Siguiente reto:');
+  });
+
+  it('assembly_hint: entrega la pista de orden (un solo mensaje user)', () => {
+    const state = replayState([NEG], bp);
+    const event: TurnEvent = {
+      type: 'assembly_hint',
+      level: 1,
+      orderHint: 'Tu mochila tiene 8 piezas: 2 palabras, 2 números y 4 símbolos.',
+    };
+    const prompt = buildPrompt(event, state, [NEG], bp);
+    expect(prompt.systemPrompt).toContain('PISTA DE ORDEN');
+    expect(prompt.systemPrompt).toContain('Tu mochila tiene 8 piezas');
+    expect(prompt.messagesForAI).toHaveLength(1);
+    expect(prompt.temperature).toBe(0.25);
   });
 });

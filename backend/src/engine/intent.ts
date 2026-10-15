@@ -61,6 +61,17 @@ export function classifyIntent(text: string): IntentId | null {
   return null;
 }
 
+/**
+ * ¿El mensaje pide una pista sobre el ORDEN? (solo relevante en la fase de
+ * ensamblaje, donde un mensaje así NO debe procesarse como intento de armado).
+ */
+export function isOrderHintRequest(text: string): boolean {
+  const t = text || '';
+  return /pista\s+(?:de|del|sobre\s+el)\s+orden|c[oó]mo\s+ordeno|ayuda\s+con\s+el\s+orden|no\s+s[eé]\s+(?:el\s+|cu[aá]l\s+es\s+el\s+)?orden|qu[eé]\s+orden|orden\s+correcto|orden\s+exacto/i.test(
+    t
+  );
+}
+
 export type NumericProperty = 'suma' | 'paridad' | 'repetidos' | 'extremos' | 'capicua' | 'primo';
 
 /** Determina qué propiedad matemática pidió el usuario (o null si no es de la tabla). */
