@@ -12,6 +12,10 @@ describe('AudioService - Sonidos Procedurales de WIFI QUEST (Fase 5)', () => {
     expect(typeof audioService.playAssemblyPhaseSound).toBe('function');
   });
 
+  it('expone el blip de respuesta del LLM (transiciones de frontend)', () => {
+    expect(typeof audioService.playLlmReplySound).toBe('function');
+  });
+
   it('debe exponer los efectos y el modo del Ensamblaje Final (Fase 4)', () => {
     expect(typeof audioService.playPiecePlaceSound).toBe('function');
     expect(typeof audioService.playSlotCorrectSound).toBe('function');
@@ -51,6 +55,7 @@ describe('AudioService - Sonidos Procedurales de WIFI QUEST (Fase 5)', () => {
       audioService.playAssemblyPhaseSound();
       audioService.playModalOpenSound();
       audioService.playLeakDetectedSound();
+      audioService.playLlmReplySound();
     }).not.toThrow();
   });
 

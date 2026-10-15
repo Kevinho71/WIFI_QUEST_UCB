@@ -25,6 +25,10 @@ class AudioService {
   private musicInterval: any = null;
   private activeMusicMasterGain: GainNode | null = null;
   private isMusicPlaying = false;
+  // Token de generación: invalida arranques de música en vuelo (async) para que
+  // dos llamadas seguidas (p. ej. entrar y salir del ensamblaje) nunca dejen dos
+  // bucles de fondo sonando a la vez.
+  private musicGeneration = 0;
 
   // Fase 4 — Ensamblaje final (Nivel 1): música de tensión + urgencia escalable.
   private assemblyMode = false;
@@ -200,6 +204,46 @@ class AudioService {
     gain2.connect(ctx.destination);
     osc2.start(now + 0.06);
     osc2.stop(now + 0.36);
+  }
+
+  /**
+   * Blip sutil al recibir CUALQUIER respuesta del LLM (chat Nivel 1, Nivel 2 y
+   * ensamblaje). Es intencionalmente corto y de bajo volumen para acompañar sin
+   * molestar, y suena siempre (incluso junto a los sonidos de fuga/victoria).
+   */
+  public playLlmReplySound(): void {
+    if (this.isMutedState) return;
+    const ctx = this.getContextSync();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const notes = [
+      { freq: 880.0, time: now }, // A5
+      { freq: 1174.66, time: now + 0.07 }, // D6
+    ];
+
+    notes.forEach(({ freq, time }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, time);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(4200, time);
+
+      gain.gain.setValueAtTime(0.001, time);
+      gain.gain.linearRampToValueAtTime(0.09, time + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(time);
+      osc.stop(time + 0.12);
+    });
   }
 
   /**
@@ -667,13 +711,21 @@ class AudioService {
     this.currentLevel = level;
     this.stopMusic();
 
+    // Reclama una nueva generación; cualquier arranque anterior en vuelo queda
+    // invalidado en cuanto su `await` resuelva.
+    const generation = ++this.musicGeneration;
+
     const ctx = await this.ensureContext();
     if (!ctx || this.isMutedState) return;
+    if (generation !== this.musicGeneration) return;
 
     this.startProceduralSynthMusic(level, ctx);
   }
 
   public stopMusic(): void {
+    // Invalida arranques en vuelo antes de desmontar la pista actual.
+    this.musicGeneration++;
+
     if (this.musicInterval) {
       clearInterval(this.musicInterval);
       this.musicInterval = null;
