@@ -7,6 +7,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { PasswordValidator } from '@/components/chat/PasswordValidator';
 import { VictoryModal } from '@/components/chat/VictoryModal';
 import { KeyringDock } from '@/components/chat/KeyringDock';
+import { FinalAssemblyPanel } from '@/components/chat/FinalAssemblyPanel';
 import { ModeSelectionModal } from '@/components/chat/ModeSelectionModal';
 import { ModeSwitchModal } from '@/components/chat/ModeSwitchModal';
 import { audioService } from '@/services/audioService';
@@ -41,6 +42,7 @@ export function App() {
     switchLevel,
     messages,
     sendMessage,
+    sendAssemblyValidation,
     clearHistory,
     isLoading,
     errorBanner,
@@ -81,6 +83,8 @@ export function App() {
   });
 
   const isSolved = Boolean(solvedLevels[currentLevel]);
+  // Pantalla dedicada de ensamblaje final (Nivel 1, fase assembly, sin resolver aún)
+  const isAssemblyPhase = currentLevel === 1 && gameState?.phase === 'assembly' && !isSolved;
 
   // Persistir estado de niveles resueltos en localStorage y sessionStorage
   useEffect(() => {
@@ -208,17 +212,6 @@ export function App() {
 
       {/* Contenedor central encuadrado y responsivo */}
       <main className="flex-1 overflow-hidden flex flex-col w-full max-w-4xl mx-auto border-x border-border/40 bg-background/50 shadow-2xl">
-        {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
-        {currentLevel === 1 && (
-          <KeyringDock
-            gameState={gameState}
-            justDroppedFragment={justDroppedFragment}
-            unlockNotification={latestUnlockNotification}
-            onDismissNotification={clearUnlockNotification}
-            onFragmentClick={handleInsertFragment}
-          />
-        )}
-
         {/* Banner de error flotante (por ejemplo si se excede el rate limit) */}
         {errorBanner && (
           <div className="w-full px-3 pt-2">
@@ -239,22 +232,45 @@ export function App() {
           </div>
         )}
 
-        {/* Área de mensajes de conversación */}
-        <ChatMessageList
-          messages={messages}
-          currentLevel={currentLevel}
-          isLoading={isLoading}
-          onOpenValidator={() => setIsValidatorOpen(true)}
-        />
+        {isAssemblyPhase ? (
+          /* Pantalla de Ensamblaje Final (Nivel 1) */
+          <FinalAssemblyPanel
+            gameState={gameState}
+            isSubmitting={isLoading}
+            onValidate={sendAssemblyValidation}
+            onSolved={handlePasswordSolved}
+          />
+        ) : (
+          <>
+            {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
+            {currentLevel === 1 && (
+              <KeyringDock
+                gameState={gameState}
+                justDroppedFragment={justDroppedFragment}
+                unlockNotification={latestUnlockNotification}
+                onDismissNotification={clearUnlockNotification}
+                onFragmentClick={handleInsertFragment}
+              />
+            )}
 
-        {/* Barra de entrada de texto terminal */}
-        <ChatInput
-          onSendMessage={sendMessage}
-          isLoading={isLoading}
-          currentLevel={currentLevel}
-          isSolved={isSolved}
-          insertedText={fragmentToInsert}
-        />
+            {/* Área de mensajes de conversación */}
+            <ChatMessageList
+              messages={messages}
+              currentLevel={currentLevel}
+              isLoading={isLoading}
+              onOpenValidator={() => setIsValidatorOpen(true)}
+            />
+
+            {/* Barra de entrada de texto terminal */}
+            <ChatInput
+              onSendMessage={sendMessage}
+              isLoading={isLoading}
+              currentLevel={currentLevel}
+              isSolved={isSolved}
+              insertedText={fragmentToInsert}
+            />
+          </>
+        )}
       </main>
 
       {/* Modal de Victoria con Confeti */}

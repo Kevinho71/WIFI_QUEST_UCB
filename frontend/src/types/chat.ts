@@ -10,6 +10,7 @@ export interface ChatMessage {
   victory?: boolean;
   provider?: string;
   timestamp: number;
+  assembly?: boolean; // Marca mensajes de la validación de ensamblaje (Nivel 1)
 }
 
 export interface ChatHistoryPayload {
@@ -21,6 +22,7 @@ export interface ChatRequest {
   level: SecurityLevel;
   messages: ChatHistoryPayload[];
   userTurnNumber?: number;
+  assemblyPieces?: string[]; // Orden actual de las piezas en la fase de ensamblaje
 }
 
 export interface DiscoveredFragmentDTO {
@@ -39,6 +41,19 @@ export interface GameStateDTO {
   justUnlockedFragment?: string; // Para disparar la animación de caída en el front
   isCombo?: boolean; // Para disparar sonido especial de combo
   assemblyDiffAdvice?: string; // Diagnóstico quirúrgico si falló el ensamblaje
+  assemblyFeedback?: AssemblyFeedbackDTO; // Feedback por posición del último intento
+}
+
+export interface AssemblyFeedbackDTO {
+  slotCorrect: boolean[]; // true si la pieza i del intento está en su posición correcta
+  wellPlaced: number; // cantidad de posiciones correctas
+  total: number; // total de piezas de la clave
+}
+
+export interface AssemblyValidationResult {
+  reply: string;
+  victory: boolean;
+  feedback?: AssemblyFeedbackDTO;
 }
 
 export interface UnlockNotification {
