@@ -79,4 +79,11 @@ describe('Fase 8: dispatch LEVEL1_ENGINE', () => {
     expect(res.provider).toBe('mock');
     expect('victory' in res).toBe(false);
   });
+
+  it('v1 ignora assemblyPieces sin fallar (compatibilidad del contrato)', async () => {
+    process.env.LEVEL1_ENGINE = 'v1';
+    const res = await processSecurityLevel(1, HISTORY, 1, HISTORY, ['#', 'Quasar']);
+    expect('victory' in res).toBe(false);
+    expect(res.reply).toBe('respuesta mock del LLM');
+  });
 });

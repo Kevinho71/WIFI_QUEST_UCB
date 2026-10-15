@@ -16,6 +16,7 @@ import {
 } from '@/lib/assembly';
 import { useAssemblyTimer } from '@/hooks/useAssemblyTimer';
 import { ASSEMBLY_EXPIRED_KEY, writeFlag } from '@/lib/assemblyTimer';
+import { resolveAssemblyBubbleMessage } from '@/lib/assemblyMessages';
 import {
   Bot,
   Check,
@@ -37,12 +38,6 @@ interface FinalAssemblyPanelProps {
 }
 
 type DragPayload = { from: 'tray' | 'slot'; id: string; slotIndex?: number };
-
-const INTRO_MESSAGE =
-  '¡Llegaste al Gran Ensamblaje! Ordená todas las piezas y validá tu combinación. Yo mientras me río del reloj... digo, de tu intento. 😉';
-
-const EXPIRED_TAUNT =
-  '😏 ¡Y se acabó el minuto! ¿Te la creíste? Tranqui, crack, acá el reloj es puro teatro: no pasa absolutamente nada. Seguí ordenando las piezas y validá cuando quieras. 🙃';
 
 const TIMER_STYLES: Record<string, { box: string; text: string; icon: string }> = {
   normal: {
@@ -100,7 +95,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
 
   // Solo el último mensaje del LLM es visible; si aún no hubo validación, se
   // muestra el aviso de expiración o la instrucción inicial.
-  const bubbleMessage = llmReply ?? (expired ? EXPIRED_TAUNT : INTRO_MESSAGE);
+  const bubbleMessage = resolveAssemblyBubbleMessage(llmReply, expired);
 
   // Fase 4 — música tensa durante el ensamblaje; se restaura al salir de la escena.
   useEffect(() => {
