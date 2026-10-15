@@ -9,6 +9,12 @@ export interface ChatRequestBody {
   level: 1 | 2;
   messages: ChatMessage[];
   userTurnNumber?: number;
+  /**
+   * Orden actual de las piezas en la fase de ensamblaje (Nivel 1). Metadato
+   * opcional SOLO para calcular el feedback por posición; el servidor lo valida
+   * contra el inventario y contra el texto del mensaje antes de usarlo.
+   */
+  assemblyPieces?: string[];
 }
 
 export interface DiscoveredFragmentDTO {
@@ -27,6 +33,18 @@ export interface GameStateDTO {
   justUnlockedFragment?: string; // Para disparar la animación de caída en el front
   isCombo?: boolean; // Para disparar sonido especial de combo
   assemblyDiffAdvice?: string; // Diagnóstico quirúrgico si falló el ensamblaje
+  assemblyFeedback?: AssemblyFeedbackDTO; // Feedback por posición del último intento
+}
+
+/**
+ * Feedback determinista del ensamblaje: qué posiciones del intento coinciden con
+ * el orden correcto. NUNCA expone la clave esperada ni el orden completo: solo el
+ * resultado booleano por posición del intento que envió el usuario.
+ */
+export interface AssemblyFeedbackDTO {
+  slotCorrect: boolean[]; // true si la pieza i del intento está en su posición correcta
+  wellPlaced: number; // cantidad de posiciones correctas
+  total: number; // total de piezas de la clave
 }
 
 export interface ChatResponseBody {

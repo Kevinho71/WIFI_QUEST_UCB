@@ -1,6 +1,10 @@
 import { tokenizePassword } from '../services/fragmentService.js';
 import type { Blueprint } from './blueprint.js';
-import type { FragmentEvaluationResult, PasswordFragment } from '../types/index.js';
+import type {
+  AssemblyFeedbackDTO,
+  FragmentEvaluationResult,
+  PasswordFragment,
+} from '../types/index.js';
 import { normalizeForMatch } from '../utils/text.js';
 
 /**
@@ -154,4 +158,45 @@ export function countWellPlaced(attempt: string, blueprint: Blueprint): number {
     if (tokens[i] === blueprint.fragments[i].value) k += 1; // case-sensitive (exacta)
   }
   return k;
+}
+
+/**
+ * Feedback determinista por posición para la fase de ensamblaje.
+ *
+ * Solo se confía en `pieces` si el payload es consistente:
+ *  1. es un arreglo de la MISMA longitud que la clave,
+ *  2. su concatenación coincide EXACTA con el intento del usuario,
+ *  3. sus valores son exactamente el multiset del inventario desbloqueado.
+ *
+ * Devuelve `undefined` ante cualquier inconsistencia: el servidor nunca falla por
+ * un payload inválido, simplemente no entrega feedback. El resultado expone
+ * únicamente booleanos por posición y contadores, jamás la clave esperada.
+ */
+export function computeAssemblyFeedback(
+  attempt: string,
+  pieces: readonly string[] | undefined,
+  blueprint: Blueprint
+): AssemblyFeedbackDTO | undefined {
+  if (!pieces || pieces.length === 0) return undefined;
+
+  const expected = blueprint.fragments;
+  if (pieces.length !== expected.length) return undefined;
+  if (pieces.some((p) => typeof p !== 'string')) return undefined;
+  if (pieces.join('') !== (attempt || '').trim()) return undefined;
+
+  // Multiset: las piezas deben corresponder exactamente al inventario desbloqueado.
+  const counts = new Map<string, number>();
+  for (const frag of expected) {
+    counts.set(frag.value, (counts.get(frag.value) ?? 0) + 1);
+  }
+  for (const piece of pieces) {
+    const remaining = counts.get(piece);
+    if (!remaining) return undefined;
+    counts.set(piece, remaining - 1);
+  }
+
+  const slotCorrect = expected.map((frag, i) => pieces[i] === frag.value);
+  const wellPlaced = slotCorrect.reduce((acc, ok) => (ok ? acc + 1 : acc), 0);
+
+  return { slotCorrect, wellPlaced, total: expected.length };
 }

@@ -160,6 +160,75 @@ describe('Fase 6: engine/orchestrator (processLevel1V2)', () => {
     expect(res.gameState?.assemblyDiffAdvice).toBeTruthy();
   });
 
+  describe('Fase 1: feedback por posición (assemblyPieces)', () => {
+    it('ensamblaje fallido: marca solo las posiciones correctas', async () => {
+      const bp = buildBlueprint(KEY);
+      const pieces = ['#', 'Fenix', '777', '!', 'Quasar', '8128', '&', '%'];
+      const attempt = pieces.join('');
+      const history = withCurrent(prefixAllUnlocked(bp), attempt);
+      vi.mocked(generateAIResponse).mockResolvedValue({
+        reply: 'Casi, crack, revisá el orden 🔥',
+        providerUsed: 'mock',
+      });
+
+      const res = await processLevel1V2(history, undefined, undefined, pieces);
+
+      expect(res.gameState?.assemblyFeedback).toBeDefined();
+      expect(res.gameState?.assemblyFeedback?.total).toBe(8);
+      expect(res.gameState?.assemblyFeedback?.wellPlaced).toBe(1);
+      expect(res.gameState?.assemblyFeedback?.slotCorrect[0]).toBe(true);
+      expect(res.gameState?.assemblyFeedback?.slotCorrect[1]).toBe(false);
+    });
+
+    it('victoria por ensamblaje exacto: todas las posiciones correctas', async () => {
+      const bp = buildBlueprint(KEY);
+      const pieces = bp.fragments.map((f) => f.value);
+      const history = withCurrent(prefixAllUnlocked(bp), KEY);
+      vi.mocked(generateAIResponse).mockResolvedValue({
+        reply: `¡GG, me ganaste! La clave es ${KEY} 🔥`,
+        providerUsed: 'mock',
+      });
+
+      const res = await processLevel1V2(history, undefined, undefined, pieces);
+
+      expect(res.victory).toBe(true);
+      expect(res.gameState?.assemblyFeedback?.wellPlaced).toBe(bp.fragments.length);
+      expect(res.gameState?.assemblyFeedback?.slotCorrect.every(Boolean)).toBe(true);
+    });
+
+    it('un payload inconsistente no produce feedback y no rompe la respuesta', async () => {
+      const bp = buildBlueprint(KEY);
+      const history = withCurrent(prefixAllUnlocked(bp), '#Fenix777!Quasar8128');
+      vi.mocked(generateAIResponse).mockResolvedValue({
+        reply: 'Casi, crack 🔥',
+        providerUsed: 'mock',
+      });
+
+      // pieces cuyo join no coincide con el mensaje
+      const res = await processLevel1V2(history, undefined, undefined, ['#', 'Fenix']);
+
+      expect(res.gameState?.assemblyFeedback).toBeUndefined();
+      expect(res.gameState?.assemblyDiffAdvice).toBeTruthy();
+    });
+
+    it('el feedback nunca filtra valores de la clave', async () => {
+      const bp = buildBlueprint(KEY);
+      const pieces = ['#', 'Fenix', '777', '!', 'Quasar', '8128', '&', '%'];
+      const history = withCurrent(prefixAllUnlocked(bp), pieces.join(''));
+      vi.mocked(generateAIResponse).mockResolvedValue({
+        reply: 'Casi, crack 🔥',
+        providerUsed: 'mock',
+      });
+
+      const res = await processLevel1V2(history, undefined, undefined, pieces);
+      const serialized = JSON.stringify(res.gameState?.assemblyFeedback);
+
+      for (const frag of bp.fragments) {
+        expect(serialized).not.toContain(frag.value);
+      }
+    });
+  });
+
   describe('end-to-end con los escenarios golden (LLM mockeado)', () => {
     it('Golden A: neutraliza un veredicto invertido', async () => {
       vi.mocked(generateAIResponse).mockResolvedValue({

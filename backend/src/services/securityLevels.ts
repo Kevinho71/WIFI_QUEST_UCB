@@ -846,16 +846,18 @@ REGLAS DE SEGURIDAD ABSOLUTAS:
 export async function processLevel1(
   messages: ChatMessage[],
   userTurnNumber?: number,
-  fullHistory?: ChatMessage[]
+  fullHistory?: ChatMessage[],
+  assemblyPieces?: string[]
 ): Promise<SecurityLevelResult & { victory?: boolean; leakBlocked?: boolean }> {
-  return processLevel1V2(messages, userTurnNumber, fullHistory);
+  return processLevel1V2(messages, userTurnNumber, fullHistory, assemblyPieces);
 }
 
 export async function processSecurityLevel(
   level: 1 | 2,
   messages: ChatMessage[],
   userTurnNumber?: number,
-  fullHistory?: ChatMessage[]
+  fullHistory?: ChatMessage[],
+  assemblyPieces?: string[]
 ): Promise<SecurityLevelResult> {
   if (level === 1) {
     // Fase 8 — v2 es el motor por defecto; el flag queda como kill-switch de rollback.
@@ -863,6 +865,8 @@ export async function processSecurityLevel(
     const engine = process.env.LEVEL1_ENGINE || 'v2';
 
     if (engine === 'v1') {
+      // La ruta legacy no calcula feedback posicional; se ignora `assemblyPieces`
+      // sin fallar (compatibilidad total con el contrato v1).
       return processLevel1V1Legacy(messages, userTurnNumber, fullHistory);
     }
 
@@ -883,7 +887,7 @@ export async function processSecurityLevel(
       return result;
     }
 
-    return processLevel1V2(messages, userTurnNumber, fullHistory);
+    return processLevel1V2(messages, userTurnNumber, fullHistory, assemblyPieces);
   }
   if (level === 2) {
     return processLevel2(messages);

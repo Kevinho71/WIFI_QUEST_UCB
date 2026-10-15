@@ -127,7 +127,7 @@ app.post('/api/chat', async (c) => {
       );
     }
 
-    const { level, messages, userTurnNumber } = body;
+    const { level, messages, userTurnNumber, assemblyPieces } = body;
 
     if (level !== 1 && level !== 2) {
       return c.json(
@@ -160,11 +160,17 @@ app.post('/api/chat', async (c) => {
     const slicedHistory = fullSanitizedMessages.slice(-6);
 
     // 4. Pasar slicedHistory, computedTurnNumber y el historial completo a processSecurityLevel
+    const normalizedAssemblyPieces =
+      Array.isArray(assemblyPieces) && assemblyPieces.every((p) => typeof p === 'string')
+        ? (assemblyPieces as string[])
+        : undefined;
+
     const result = await processSecurityLevel(
       level,
       slicedHistory,
       computedTurnNumber,
-      fullSanitizedMessages
+      fullSanitizedMessages,
+      normalizedAssemblyPieces
     );
 
     return c.json(result, 200);

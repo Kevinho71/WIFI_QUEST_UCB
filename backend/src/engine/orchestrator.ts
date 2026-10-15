@@ -14,6 +14,7 @@ import type { TurnEvent } from './events.js';
 import { applyReplyCorrections, validateReply } from './guards.js';
 import type { GuardContext } from './guards.js';
 import { buildPrompt } from './prompts.js';
+import { computeAssemblyFeedback } from './matching.js';
 import { replayState } from './session.js';
 import type { SessionState } from './session.js';
 import { renderTemplate } from './templates.js';
@@ -97,7 +98,8 @@ function buildGameState(
   state0: SessionState,
   state: SessionState,
   event: TurnEvent,
-  blueprint: Blueprint
+  blueprint: Blueprint,
+  assemblyPieces?: string[]
 ): GameStateDTO {
   const beforeIds = new Set(state0.discovered.map((f) => f.id));
   const newlyUnlocked =
@@ -112,6 +114,18 @@ function buildGameState(
     type: f.type,
   }));
 
+  // Feedback por posición SOLO cuando el cliente envió un orden de ensamblaje y el
+  // evento es una validación final (fallida o victoriosa). El propio
+  // `computeAssemblyFeedback` valida el payload (misma longitud, join exacto y
+  // multiset del inventario), así que una victoria tipeada en el chat (sin
+  // `assemblyPieces`) nunca produce feedback.
+  const isAssemblyValidation =
+    Boolean(assemblyPieces) &&
+    (event.type === 'assembly_diff' || event.type === 'victory');
+  const assemblyFeedback = isAssemblyValidation
+    ? computeAssemblyFeedback(state0.currentMessage, assemblyPieces, blueprint)
+    : undefined;
+
   return {
     phase: state.phase,
     totalFragments: blueprint.fragments.length,
@@ -123,6 +137,7 @@ function buildGameState(
       : undefined,
     isCombo: event.type === 'piece_hit' ? event.kind === 'combo' : undefined,
     assemblyDiffAdvice: event.type === 'assembly_diff' ? event.diagnosis : undefined,
+    assemblyFeedback,
   };
 }
 
@@ -160,7 +175,8 @@ async function safeGenerate(
 export async function processLevel1V2(
   messages: ChatMessage[],
   _userTurnNumber?: number, // IGNORADO: el turno se deriva del historial
-  fullHistory?: ChatMessage[]
+  fullHistory?: ChatMessage[],
+  assemblyPieces?: string[]
 ): Promise<SecurityLevelResult & { victory?: boolean; leakBlocked?: boolean }> {
   const blueprint = getBlueprint();
   const history = fullHistory && fullHistory.length ? fullHistory : messages;
@@ -223,7 +239,7 @@ export async function processLevel1V2(
     provider = 'engine-template';
   }
 
-  const gameState = buildGameState(state0, stateAfter, event, blueprint);
+  const gameState = buildGameState(state0, stateAfter, event, blueprint, assemblyPieces);
   const solved = stateAfter.phase === 'solved';
 
   // Fase 8 — métricas: contadores por request, acumulados en módulo.
