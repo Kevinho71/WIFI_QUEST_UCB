@@ -68,7 +68,11 @@ interface Scenario {
 function buildScenarios(bp: Blueprint): Scenario[] {
   const firstWord = bp.queue.find((f) => f.type === 'word')!;
   const last = bp.queue[bp.queue.length - 1];
-  const other = bp.queue.find((f) => f !== firstWord)!;
+  // Fragmento FUTURO (posterior a la primera palabra): con `find(f => f !== firstWord)`
+  // los escenarios combo/out_of_turn re-tipeaban una pieza ya descubierta y el evento
+  // resultante no era `piece_hit`. Mismo criterio que prompts.test.ts.
+  const wi = bp.queue.indexOf(firstWord);
+  const other = bp.queue[wi + 1] ?? bp.queue[wi - 1];
 
   return [
     { name: 'rompehielo', history: [NEG] },

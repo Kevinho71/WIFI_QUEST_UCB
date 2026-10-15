@@ -159,7 +159,8 @@ function fillsFor(event: TurnEvent, blueprint: Blueprint): Record<string, string
         verdictWord: higher ? 'te quedaste corto' : 'te pasaste',
         proximityWord: event.proximity,
         proximityLower: event.proximity.toLowerCase(),
-        resultSentence: `El número secreto es ${higher ? 'MAYOR' : 'MENOR'} que ${event.guess}.`,
+        // El veredicto va en minúsculas (prosa): el guard lo compara sin distinguir caja.
+        resultSentence: `el número secreto es ${higher ? 'mayor' : 'menor'} que ${event.guess}.`,
       };
     }
     case 'word_riddle':
