@@ -8,6 +8,7 @@ interface ChatInputProps {
   isLoading: boolean;
   currentLevel: SecurityLevel;
   isSolved?: boolean;
+  insertedText?: { text: string; id: number } | null;
 }
 
 const LEVEL_SUGGESTIONS: Record<SecurityLevel, string[]> = {
@@ -31,6 +32,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isLoading,
   currentLevel,
   isSolved = false,
+  insertedText,
 }) => {
   const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -39,6 +41,33 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const charCount = content.length;
   const isOverLimit = charCount > MAX_CHARS;
   const isNearLimit = charCount >= 300;
+
+  // Inserción interactiva de fragmentos al hacer clic en el KeyringDock (Fase 5.4)
+  useEffect(() => {
+    if (insertedText && !isSolved) {
+      setContent((prev) => {
+        if (textareaRef.current) {
+          const start = textareaRef.current.selectionStart ?? prev.length;
+          const end = textareaRef.current.selectionEnd ?? prev.length;
+          const updated = prev.slice(0, start) + insertedText.text + prev.slice(end);
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.focus();
+              const newPos = start + insertedText.text.length;
+              textareaRef.current.setSelectionRange(newPos, newPos);
+              textareaRef.current.style.height = 'auto';
+              textareaRef.current.style.height = `${Math.min(
+                textareaRef.current.scrollHeight,
+                120
+              )}px`;
+            }
+          }, 15);
+          return updated;
+        }
+        return prev ? `${prev}${insertedText.text}` : insertedText.text;
+      });
+    }
+  }, [insertedText, isSolved]);
 
   // Auto-focus on level change or desktop when not solved
   useEffect(() => {

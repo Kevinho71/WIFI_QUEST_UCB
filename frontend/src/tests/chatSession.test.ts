@@ -111,4 +111,33 @@ describe('useChatSession Logic & Phase 2 Persistence', () => {
     expect(localStorage.getItem('wifi_quest_solved_lvl_2')).toBe('false');
     expect(localStorage.getItem('wifi_quest_solved')).toBe('false');
   });
+
+  it('debe persistir y limpiar el estado del Keyring Dock (wifi_quest_game_state_lvl_1) para Fase 4', () => {
+    const gameState = {
+      phase: 'hunting',
+      totalFragments: 5,
+      discoveredCount: 2,
+      currentChallengeHint: 'Busca el número de 3 dígitos',
+      unlockedFragments: [
+        { id: 'frag_1', orderDiscovered: 1, value: '505', type: 'number' },
+        { id: 'frag_2', orderDiscovered: 2, value: '@', type: 'symbol' },
+      ],
+      justUnlockedFragment: '@',
+      isCombo: false,
+    };
+
+    localStorage.setItem('wifi_quest_game_state_lvl_1', JSON.stringify(gameState));
+
+    const retrievedRaw = localStorage.getItem('wifi_quest_game_state_lvl_1');
+    expect(retrievedRaw).toBeTruthy();
+    const retrievedState = JSON.parse(retrievedRaw!);
+    expect(retrievedState.phase).toBe('hunting');
+    expect(retrievedState.discoveredCount).toBe(2);
+    expect(retrievedState.unlockedFragments).toHaveLength(2);
+    expect(retrievedState.unlockedFragments[0].value).toBe('505');
+
+    // Al limpiar la sesión o cambiar de nivel
+    localStorage.removeItem('wifi_quest_game_state_lvl_1');
+    expect(localStorage.getItem('wifi_quest_game_state_lvl_1')).toBeNull();
+  });
 });

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { ChatMessage, SecurityLevel } from '@/types/chat';
+import type {
+  ChatMessage,
+  SecurityLevel,
+  GameStateDTO,
+  UnlockNotification,
+} from '@/types/chat';
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { sendChatMessage, ApiError } from '@/services/api';
 import { audioService } from '@/services/audioService';
@@ -74,6 +79,19 @@ function saveMessagesToStorage(messages: ChatMessage[], level: SecurityLevel): v
   }
 }
 
+function loadGameStateFromStorage(level: SecurityLevel): GameStateDTO | null {
+  if (typeof window === 'undefined' || level !== 1) return null;
+  try {
+    const raw = localStorage.getItem('wifi_quest_game_state_lvl_1');
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn('[useChatSession] Error parsing game state from storage:', err);
+  }
+  return null;
+}
+
 export function useChatSession(initialLevel: SecurityLevel = 1) {
   const [currentLevel, setCurrentLevel] = useState<SecurityLevel>(() => getSavedLevel(initialLevel));
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
@@ -83,6 +101,23 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
   const [isLoading, setIsLoading] = useState(false);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+
+  // Estado del juego de desbloqueo secuencial (Lucas - Nivel 1)
+  const [gameState, setGameState] = useState<GameStateDTO | null>(() =>
+    loadGameStateFromStorage(getSavedLevel(initialLevel))
+  );
+  const [latestUnlockNotification, setLatestUnlockNotification] =
+    useState<UnlockNotification | null>(null);
+  const [justDroppedFragment, setJustDroppedFragment] = useState<string | null>(null);
+
+  // Auto-descartar el toast sutil de desbloqueo después de 3.2 segundos
+  useEffect(() => {
+    if (!latestUnlockNotification) return;
+    const timer = setTimeout(() => {
+      setLatestUnlockNotification(null);
+    }, 3200);
+    return () => clearTimeout(timer);
+  }, [latestUnlockNotification]);
 
   // Guardar en localStorage siempre que cambien los mensajes o el nivel
   useEffect(() => {
@@ -142,6 +177,58 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           setLastProvider(response.providerUsed);
         }
 
+        // 3. Procesar y sincronizar GameStateDTO si está presente (Nivel 1: Lucas)
+        if (response.gameState) {
+          const newGameState = response.gameState;
+          setGameState((prev) => {
+            const prevCount = prev?.discoveredCount ?? 0;
+            const prevPhase = prev?.phase;
+            const isTransitionToAssembly =
+              prevPhase !== 'assembly' && newGameState.phase === 'assembly';
+            const isNewUnlock =
+              newGameState.discoveredCount > prevCount ||
+              Boolean(newGameState.justUnlockedFragment);
+
+            if (isTransitionToAssembly) {
+              audioService.playAssemblyPhaseSound();
+            } else if (isNewUnlock) {
+              if (newGameState.isCombo) {
+                audioService.playComboSound();
+              } else {
+                audioService.playFragmentUnlockedSound();
+              }
+
+              const unlockedVal =
+                newGameState.justUnlockedFragment ||
+                newGameState.unlockedFragments[newGameState.unlockedFragments.length - 1]?.value ||
+                '';
+
+              setJustDroppedFragment(unlockedVal);
+
+              setLatestUnlockNotification({
+                id: `unlock_${Date.now()}`,
+                fragmentValue: unlockedVal,
+                discoveredCount: newGameState.discoveredCount,
+                totalFragments: newGameState.totalFragments,
+                isCombo: Boolean(newGameState.isCombo),
+              });
+            }
+
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(
+                  'wifi_quest_game_state_lvl_1',
+                  JSON.stringify(newGameState)
+                );
+              } catch (storageErr) {
+                console.warn('[useChatSession] Error saving game state:', storageErr);
+              }
+            }
+
+            return newGameState;
+          });
+        }
+
         setMessages((prev) => [...prev, assistantMessage]);
         return true;
       } catch (err: unknown) {
@@ -175,12 +262,16 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
       const initialGreeting = getInitialGreeting(lvl);
 
       setMessages([initialGreeting]);
+      setGameState(null);
+      setLatestUnlockNotification(null);
+      setJustDroppedFragment(null);
 
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
           localStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
           sessionStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
+          localStorage.removeItem('wifi_quest_game_state_lvl_1');
         } catch (err) {
           console.warn(`[useChatSession] Error clearing storage for level ${lvl}:`, err);
         }
@@ -194,6 +285,9 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
     setCurrentLevel(newLevel);
     const initialGreeting = getInitialGreeting(newLevel);
     setMessages([initialGreeting]);
+    setGameState(null);
+    setLatestUnlockNotification(null);
+    setJustDroppedFragment(null);
 
     if (typeof window !== 'undefined') {
       try {
@@ -201,6 +295,7 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
         localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
         localStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
         sessionStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
+        localStorage.removeItem('wifi_quest_game_state_lvl_1');
       } catch (err) {
         console.warn(`[useChatSession] Error updating storage on switch to level ${newLevel}:`, err);
       }
@@ -218,5 +313,9 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
     lastProvider,
     errorBanner,
     clearErrorBanner: () => setErrorBanner(null),
+    gameState,
+    latestUnlockNotification,
+    justDroppedFragment,
+    clearUnlockNotification: () => setLatestUnlockNotification(null),
   };
 }

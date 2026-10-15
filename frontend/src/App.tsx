@@ -6,6 +6,7 @@ import { ChatMessageList } from '@/components/chat/ChatMessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { PasswordValidator } from '@/components/chat/PasswordValidator';
 import { VictoryModal } from '@/components/chat/VictoryModal';
+import { KeyringDock } from '@/components/chat/KeyringDock';
 import { ModeSelectionModal } from '@/components/chat/ModeSelectionModal';
 import { ModeSwitchModal } from '@/components/chat/ModeSwitchModal';
 import { audioService } from '@/services/audioService';
@@ -44,10 +45,19 @@ export function App() {
     isLoading,
     errorBanner,
     clearErrorBanner,
+    gameState,
+    latestUnlockNotification,
+    justDroppedFragment,
+    clearUnlockNotification,
   } = useChatSession(1);
 
   const [isValidatorOpen, setIsValidatorOpen] = useState(false);
   const [solvedLevels, setSolvedLevels] = useState<Record<SecurityLevel, boolean>>(loadSolvedState);
+  const [fragmentToInsert, setFragmentToInsert] = useState<{ text: string; id: number } | null>(null);
+
+  const handleInsertFragment = (fragmentValue: string) => {
+    setFragmentToInsert({ text: fragmentValue, id: Date.now() });
+  };
 
   // Modal grande inicial para elegir modo al ingresar
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(() => {
@@ -198,6 +208,17 @@ export function App() {
 
       {/* Contenedor central encuadrado y responsivo */}
       <main className="flex-1 overflow-hidden flex flex-col w-full max-w-4xl mx-auto border-x border-border/40 bg-background/50 shadow-2xl">
+        {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
+        {currentLevel === 1 && (
+          <KeyringDock
+            gameState={gameState}
+            justDroppedFragment={justDroppedFragment}
+            unlockNotification={latestUnlockNotification}
+            onDismissNotification={clearUnlockNotification}
+            onFragmentClick={handleInsertFragment}
+          />
+        )}
+
         {/* Banner de error flotante (por ejemplo si se excede el rate limit) */}
         {errorBanner && (
           <div className="w-full px-3 pt-2">
@@ -232,6 +253,7 @@ export function App() {
           isLoading={isLoading}
           currentLevel={currentLevel}
           isSolved={isSolved}
+          insertedText={fragmentToInsert}
         />
       </main>
 
