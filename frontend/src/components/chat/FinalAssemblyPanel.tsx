@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type {
   AssemblyFeedbackDTO,
   AssemblyValidationResult,
@@ -13,6 +13,8 @@ import {
   buildCandidate,
   type AssemblyLayout,
 } from '@/lib/assembly';
+import { useAssemblyTimer } from '@/hooks/useAssemblyTimer';
+import { ASSEMBLY_EXPIRED_KEY, writeFlag } from '@/lib/assemblyTimer';
 import {
   Bot,
   Check,
@@ -22,6 +24,7 @@ import {
   Puzzle,
   RotateCcw,
   Sparkles,
+  Timer,
   X,
 } from 'lucide-react';
 
@@ -36,6 +39,32 @@ type DragPayload = { from: 'tray' | 'slot'; id: string; slotIndex?: number };
 
 const INTRO_MESSAGE =
   '¡Llegaste al Gran Ensamblaje! Ordená todas las piezas y validá tu combinación. Yo mientras me río del reloj... digo, de tu intento. 😉';
+
+const EXPIRED_TAUNT =
+  '😏 ¡Y se acabó el minuto! ¿Te la creíste? Tranqui, crack, acá el reloj es puro teatro: no pasa absolutamente nada. Seguí ordenando las piezas y validá cuando quieras. 🙃';
+
+const TIMER_STYLES: Record<string, { box: string; text: string; icon: string }> = {
+  normal: {
+    box: 'border-amber-500/40 bg-amber-950/30',
+    text: 'text-amber-200',
+    icon: 'text-amber-400',
+  },
+  warning: {
+    box: 'border-orange-500/60 bg-orange-950/40 shadow-[0_0_14px_rgba(249,115,22,0.3)]',
+    text: 'text-orange-200',
+    icon: 'text-orange-400',
+  },
+  critical: {
+    box: 'border-red-500/70 bg-red-950/50 shadow-[0_0_16px_rgba(239,68,68,0.45)] animate-pulse',
+    text: 'text-red-200',
+    icon: 'text-red-400',
+  },
+  expired: {
+    box: 'border-rose-500/50 bg-rose-950/40',
+    text: 'text-rose-300',
+    icon: 'text-rose-400',
+  },
+};
 
 export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   gameState,
@@ -57,7 +86,20 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const [dragPayload, setDragPayload] = useState<DragPayload | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<AssemblyFeedbackDTO | null>(null);
-  const [bubbleMessage, setBubbleMessage] = useState<string>(INTRO_MESSAGE);
+  const [llmReply, setLlmReply] = useState<string | null>(null);
+
+  const { clock, remainingMs, expired, band } = useAssemblyTimer();
+
+  // Persistir el indicador de expiración (sincronización con un sistema externo).
+  // La vista NO depende de este flag: se deriva de `expired`, así que el aviso
+  // nunca se duplica por renders ni recargas.
+  useEffect(() => {
+    if (expired) writeFlag(ASSEMBLY_EXPIRED_KEY, true);
+  }, [expired]);
+
+  // Solo el último mensaje del LLM es visible; si aún no hubo validación, se
+  // muestra el aviso de expiración o la instrucción inicial.
+  const bubbleMessage = llmReply ?? (expired ? EXPIRED_TAUNT : INTRO_MESSAGE);
 
   const full = isLayoutFull(layout);
   const hasPlaced = layout.slots.some((id) => id !== null);
@@ -136,7 +178,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     const result = await onValidate(pieces);
     if (!result) return;
 
-    setBubbleMessage(result.reply);
+    setLlmReply(result.reply);
     setFeedback(result.feedback ?? null);
 
     if (result.victory) {
@@ -144,9 +186,19 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     }
   };
 
+  const timerStyle = TIMER_STYLES[band] ?? TIMER_STYLES.normal;
+  // Se anuncia por bandas (no cada segundo) para no saturar al lector de pantalla.
+  const announcement = expired
+    ? 'Se agotó el minuto en broma; puedes seguir intentando.'
+    : remainingMs <= 10_000
+      ? 'Quedan diez segundos, en broma.'
+      : remainingMs <= 30_000
+        ? 'Quedan treinta segundos, en broma.'
+        : '';
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Burbuja superior: contador (Fase 3) + último mensaje del LLM */}
+      {/* Burbuja superior: contador (broma) + último mensaje del LLM */}
       <div className="flex items-stretch gap-2 border-b border-amber-500/30 bg-gradient-to-b from-amber-950/40 via-card/70 to-background/90 px-3 py-2.5 sm:px-4">
         <div className="flex min-w-0 flex-1 items-start gap-2.5 rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 py-2 shadow-[0_0_16px_rgba(245,158,11,0.15)]">
           <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-amber-500/50 bg-blue-950/80 text-amber-400">
@@ -164,10 +216,22 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
           </div>
         </div>
 
-        <div className="hidden shrink-0 flex-col items-center justify-center rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 sm:flex">
-          <Puzzle className="size-4 text-amber-400" />
-          <span className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-amber-300">
-            Fase Final
+        {/* Contador de 1 minuto (broma): al llegar a cero no bloquea nada */}
+        <div
+          className={`flex shrink-0 flex-col items-center justify-center rounded-xl border px-2.5 py-1 font-mono transition-colors ${timerStyle.box}`}
+          title="Contador de broma: al llegar a cero no pasa nada, podés seguir jugando"
+        >
+          <div className="flex items-center gap-1">
+            <Timer className={`size-3.5 ${timerStyle.icon}`} />
+            <span className={`text-base font-bold tabular-nums ${timerStyle.text}`}>
+              {clock}
+            </span>
+          </div>
+          <span className={`text-[8px] font-bold uppercase tracking-wide ${timerStyle.text}`}>
+            {expired ? 'era broma' : 'en broma'}
+          </span>
+          <span className="sr-only" aria-live="polite">
+            {announcement}
           </span>
         </div>
       </div>

@@ -10,6 +10,7 @@ import type {
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { sendChatMessage, ApiError } from '@/services/api';
 import { audioService } from '@/services/audioService';
+import { clearAssemblyTimerStorage } from '@/lib/assemblyTimer';
 
 function createMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -347,6 +348,7 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
       setGameState(null);
       setLatestUnlockNotification(null);
       setJustDroppedFragment(null);
+      clearAssemblyTimerStorage();
 
       if (typeof window !== 'undefined') {
         try {
@@ -370,6 +372,7 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
     setGameState(null);
     setLatestUnlockNotification(null);
     setJustDroppedFragment(null);
+    clearAssemblyTimerStorage();
 
     if (typeof window !== 'undefined') {
       try {
