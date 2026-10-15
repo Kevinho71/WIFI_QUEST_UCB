@@ -63,7 +63,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md sm:max-w-md border-amber-500/50 bg-card p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
+      <DialogContent className="animate-victory-pop max-w-md sm:max-w-md border-amber-500/50 bg-card p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
         <DialogHeader className="text-center sm:text-center items-center">
           {/* Trophy & Icon glow */}
           <div className="relative mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-blue-950/80 border border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.4)]">

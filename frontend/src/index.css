@@ -259,3 +259,89 @@
 .animate-assembly-beacon {
   animation: assemblyBeaconPulse 2.2s infinite ease-in-out;
 }
+
+/* Entrada cyberpunk a la fase de ensamblaje: parpadeo glitch + barrido scanline */
+@keyframes assemblyGlitchIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+    filter: brightness(2.4) saturate(0.2) blur(1px);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(0) scale(1.004);
+    filter: brightness(1.6) saturate(1.5);
+  }
+  24% {
+    opacity: 0.7;
+    transform: translateX(-3px);
+  }
+  34% {
+    opacity: 1;
+    transform: translateX(2px);
+    filter: brightness(1.2) saturate(1.2);
+  }
+  46% {
+    opacity: 0.9;
+    transform: translateX(-1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) translateX(0) scale(1);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+.animate-assembly-in {
+  animation: assemblyGlitchIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes assemblyScanlineSweep {
+  0% {
+    background-position: 0 -130%;
+    opacity: 0.85;
+  }
+  100% {
+    background-position: 0 130%;
+    opacity: 0;
+  }
+}
+
+.animate-assembly-in::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(245, 158, 11, 0.14) 48%,
+    rgba(255, 255, 255, 0.06) 52%,
+    transparent 100%
+  );
+  background-size: 100% 220%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: assemblyScanlineSweep 0.6s ease-out both;
+}
+
+/* Pop suave con sobreimpulso para el modal de victoria (reemplaza el zoom rígido) */
+@keyframes victoryPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.animate-victory-pop[data-state='open'] {
+  animation: victoryPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

@@ -170,7 +170,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
             <textarea
               ref={textareaRef}
-              rows={1}
+              rows={2}
               value={content}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}

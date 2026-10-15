@@ -237,45 +237,53 @@ export function App() {
           </div>
         )}
 
-        {isAssemblyPhase ? (
-          /* Pantalla de Ensamblaje Final (Nivel 1) */
-          <FinalAssemblyPanel
-            gameState={gameState}
-            isSubmitting={isLoading}
-            onValidate={sendAssemblyValidation}
-            onSolved={handlePasswordSolved}
-          />
-        ) : (
-          <>
-            {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
-            {currentLevel === 1 && (
-              <KeyringDock
-                gameState={gameState}
-                justDroppedFragment={justDroppedFragment}
-                unlockNotification={latestUnlockNotification}
-                onDismissNotification={clearUnlockNotification}
-                onFragmentClick={handleInsertFragment}
+        {/* Vista activa con transición: chat ↔ ensamblaje (entrada cyberpunk al ensamblar) */}
+        <div
+          key={isAssemblyPhase ? 'assembly' : 'chat'}
+          className={`relative flex flex-1 flex-col overflow-hidden ${
+            isAssemblyPhase ? 'animate-assembly-in' : 'animate-in fade-in duration-300'
+          }`}
+        >
+          {isAssemblyPhase ? (
+            /* Pantalla de Ensamblaje Final (Nivel 1) */
+            <FinalAssemblyPanel
+              gameState={gameState}
+              isSubmitting={isLoading}
+              onValidate={sendAssemblyValidation}
+              onSolved={handlePasswordSolved}
+            />
+          ) : (
+            <>
+              {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
+              {currentLevel === 1 && (
+                <KeyringDock
+                  gameState={gameState}
+                  justDroppedFragment={justDroppedFragment}
+                  unlockNotification={latestUnlockNotification}
+                  onDismissNotification={clearUnlockNotification}
+                  onFragmentClick={handleInsertFragment}
+                />
+              )}
+
+              {/* Área de mensajes de conversación */}
+              <ChatMessageList
+                messages={messages}
+                currentLevel={currentLevel}
+                isLoading={isLoading}
+                onOpenValidator={() => setIsValidatorOpen(true)}
               />
-            )}
 
-            {/* Área de mensajes de conversación */}
-            <ChatMessageList
-              messages={messages}
-              currentLevel={currentLevel}
-              isLoading={isLoading}
-              onOpenValidator={() => setIsValidatorOpen(true)}
-            />
-
-            {/* Barra de entrada de texto terminal */}
-            <ChatInput
-              onSendMessage={sendMessage}
-              isLoading={isLoading}
-              currentLevel={currentLevel}
-              isSolved={isSolved}
-              insertedText={fragmentToInsert}
-            />
-          </>
-        )}
+              {/* Barra de entrada de texto terminal */}
+              <ChatInput
+                onSendMessage={sendMessage}
+                isLoading={isLoading}
+                currentLevel={currentLevel}
+                isSolved={isSolved}
+                insertedText={fragmentToInsert}
+              />
+            </>
+          )}
+        </div>
       </main>
 
       {/* Modal de Victoria con Confeti */}
