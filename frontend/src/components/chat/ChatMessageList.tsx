@@ -170,32 +170,34 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     </p>
                   </div>
 
-                  {/* Banner de acción: validar la clave */}
-                  <div className="rounded-xl border border-emerald-500/60 bg-gradient-to-r from-emerald-950/90 via-emerald-900/60 to-emerald-950/90 p-3 shadow-[0_0_20px_rgba(16,185,129,0.25)] space-y-2">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <span className="text-base shrink-0 leading-none mt-0.5">🏆</span>
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-semibold text-emerald-200">
-                            ¡Descifraste la clave! El juego terminó y ganaste legítimamente.
-                          </p>
-                          <p className="text-[11px] text-emerald-300/80 font-mono">
-                            Valídala para desbloquear el WiFi institucional.
-                          </p>
+                  {/* Banner de acción: validar la clave (oculto si la victoria vino del ensamblaje) */}
+                  {!message.assembly && (
+                    <div className="rounded-xl border border-emerald-500/60 bg-gradient-to-r from-emerald-950/90 via-emerald-900/60 to-emerald-950/90 p-3 shadow-[0_0_20px_rgba(16,185,129,0.25)] space-y-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-base shrink-0 leading-none mt-0.5">🏆</span>
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-semibold text-emerald-200">
+                              ¡Descifraste la clave! El juego terminó y ganaste legítimamente.
+                            </p>
+                            <p className="text-[11px] text-emerald-300/80 font-mono">
+                              Valídala para desbloquear el WiFi institucional.
+                            </p>
+                          </div>
                         </div>
+                        {onOpenValidator && (
+                          <button
+                            type="button"
+                            onClick={onOpenValidator}
+                            className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-mono text-xs font-bold px-3 py-1.5 shadow-[0_0_14px_rgba(16,185,129,0.45)] transition-all cursor-pointer"
+                          >
+                            <KeyRound className="size-3.5" />
+                            <span>Ir a Validar Contraseña</span>
+                          </button>
+                        )}
                       </div>
-                      {onOpenValidator && (
-                        <button
-                          type="button"
-                          onClick={onOpenValidator}
-                          className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-mono text-xs font-bold px-3 py-1.5 shadow-[0_0_14px_rgba(16,185,129,0.45)] transition-all cursor-pointer"
-                        >
-                          <KeyRound className="size-3.5" />
-                          <span>Ir a Validar Contraseña</span>
-                        </button>
-                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             );

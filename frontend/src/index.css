@@ -330,15 +330,15 @@
 @keyframes victoryPop {
   0% {
     opacity: 0;
-    transform: translate(-50%, -46%) scale(0.92);
+    transform: scale(0.92);
   }
   60% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.015);
+    transform: scale(1.015);
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
   }
 }
 
