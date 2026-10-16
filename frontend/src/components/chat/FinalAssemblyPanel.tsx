@@ -81,8 +81,19 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const [selected, setSelected] = useState<DragPayload | null>(null);
   const [dragPayload, setDragPayload] = useState<DragPayload | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
+  const [swapAnim, setSwapAnim] = useState<{ a: number; b: number } | null>(null);
   const [feedback, setFeedback] = useState<AssemblyFeedbackDTO | null>(null);
   const [llmReply, setLlmReply] = useState<string | null>(null);
+
+  const swapTimerRef = useRef<number | null>(null);
+
+  // Limpia el temporizador de la animación de intercambio al desmontar.
+  useEffect(
+    () => () => {
+      if (swapTimerRef.current !== null) window.clearTimeout(swapTimerRef.current);
+    },
+    []
+  );
 
   const { clock, remainingMs, expired, band } = useAssemblyTimer();
 
@@ -155,6 +166,16 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   };
 
   const handlePlace = (id: string, slotIndex: number) => {
+    // Intercambio casilla ↔ casilla: dispara el deslizamiento lateral opuesto.
+    const fromSlotIndex = layout.slots.indexOf(id);
+    const targetOccupied = layout.slots[slotIndex] !== null;
+    if (fromSlotIndex !== -1 && fromSlotIndex !== slotIndex && targetOccupied) {
+      const a = Math.min(fromSlotIndex, slotIndex);
+      const b = Math.max(fromSlotIndex, slotIndex);
+      setSwapAnim({ a, b });
+      if (swapTimerRef.current !== null) window.clearTimeout(swapTimerRef.current);
+      swapTimerRef.current = window.setTimeout(() => setSwapAnim(null), 260);
+    }
     commit(placePiece(layout, id, slotIndex));
     setSelected(null);
   };
@@ -370,6 +391,12 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                 const isWrong = Boolean(feedback && id && !feedback.slotCorrect[index]);
                 const isSelected = selected?.from === 'slot' && selected.slotIndex === index;
                 const isDropTarget = dragOverSlot === index;
+                const swapClass =
+                  swapAnim && swapAnim.a === index
+                    ? 'animate-slot-swap-left'
+                    : swapAnim && swapAnim.b === index
+                      ? 'animate-slot-swap-right'
+                      : '';
 
                 return (
                   <div
@@ -377,6 +404,13 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                     role="button"
                     tabIndex={0}
                     aria-label={`Casilla ${index + 1}${frag ? `: ${frag}` : ' vacía'}`}
+                    draggable={Boolean(frag)}
+                    onDragStart={
+                      frag
+                        ? handleDragStart({ from: 'slot', id: frag, slotIndex: index })
+                        : undefined
+                    }
+                    onDragEnd={() => setDragPayload(null)}
                     onClick={() => handleSlotClick(index)}
                     onKeyDown={handleSlotKeyDown(index)}
                     onDragOver={(e) => {
@@ -385,7 +419,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                     }}
                     onDragLeave={() => setDragOverSlot((prev) => (prev === index ? null : prev))}
                     onDrop={handleDropOnSlot(index)}
-                    className={`relative flex min-h-[58px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 px-2 py-1.5 font-mono text-center transition-all ${
+                    className={`relative flex min-h-[58px] flex-col items-center justify-center rounded-lg border-2 px-2 py-1.5 font-mono text-center transition-all ${
                       isCorrect
                         ? 'border-emerald-400 bg-emerald-950/40 shadow-[0_0_14px_rgba(16,185,129,0.3)]'
                         : isWrong
@@ -395,7 +429,9 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                             : frag
                               ? 'border-amber-500/50 bg-gradient-to-b from-amber-950/50 via-card to-slate-950/70'
                               : 'border-dashed border-border/60 bg-secondary/10'
-                    } ${isSelected ? 'ring-2 ring-amber-400/70' : ''}`}
+                    } ${frag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${
+                      isSelected ? 'ring-2 ring-amber-400/70' : ''
+                    } ${swapClass}`}
                   >
                     <span className="absolute left-1.5 top-1 font-mono text-[9px] text-muted-foreground/70">
                       #{index + 1}
