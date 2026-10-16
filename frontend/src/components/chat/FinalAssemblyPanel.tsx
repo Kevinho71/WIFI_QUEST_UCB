@@ -154,9 +154,17 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     prevExpiredRef.current = expired;
   }, [expired]);
 
-  const full = isLayoutFull(layout);
-  const hasPlaced = layout.slots.some((id) => id !== null);
-  const allPlacedCount = layout.slots.filter((id) => id !== null).length;
+  // Endurecimiento: ignora ids que no resuelven a un valor conocido (defensa en
+  // profundidad ante estados corruptos; no debería ocurrir tras el fix del drag).
+  const knownId = (id: string) => valueById[id] !== undefined;
+  const trayIds = layout.tray.filter(knownId);
+  const placedValidCount = layout.slots.filter(
+    (id): id is string => id !== null && knownId(id)
+  ).length;
+
+  const full = isLayoutFull(layout) && placedValidCount === layout.slots.length;
+  const hasPlaced = placedValidCount > 0;
+  const allPlacedCount = placedValidCount;
 
   const commit = (next: AssemblyLayout) => {
     if (next === layout) return; // no-op: no suena ni re-renderiza
@@ -319,7 +327,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                 Piezas desbloqueadas
               </h3>
               <span className="font-mono text-[10px] text-muted-foreground">
-                {layout.tray.length} en bandeja
+                {trayIds.length} en bandeja
               </span>
             </div>
             <div
@@ -327,12 +335,12 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
               onDrop={handleDropOnTray}
               className="flex min-h-[64px] flex-wrap items-center gap-2 rounded-xl border border-dashed border-border/70 bg-secondary/15 p-2.5 transition-colors"
             >
-              {layout.tray.length === 0 ? (
+              {trayIds.length === 0 ? (
                 <span className="px-1 font-mono text-[11px] text-muted-foreground">
                   Todas las piezas están en su casilla. Valida tu combinación o retira alguna.
                 </span>
               ) : (
-                layout.tray.map((id) => {
+                trayIds.map((id) => {
                   const frag = valueById[id];
                   const isSelected = selected?.from === 'tray' && selected.id === id;
                   return (
@@ -386,9 +394,9 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {layout.slots.map((id, index) => {
-                const frag = id ? valueById[id] : null;
-                const isCorrect = Boolean(feedback && id && feedback.slotCorrect[index]);
-                const isWrong = Boolean(feedback && id && !feedback.slotCorrect[index]);
+                const frag = id && knownId(id) ? valueById[id] : null;
+                const isCorrect = Boolean(feedback && frag && feedback.slotCorrect[index]);
+                const isWrong = Boolean(feedback && frag && !feedback.slotCorrect[index]);
                 const isSelected = selected?.from === 'slot' && selected.slotIndex === index;
                 const isDropTarget = dragOverSlot === index;
                 const swapClass =
@@ -406,8 +414,8 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                     aria-label={`Casilla ${index + 1}${frag ? `: ${frag}` : ' vacía'}`}
                     draggable={Boolean(frag)}
                     onDragStart={
-                      frag
-                        ? handleDragStart({ from: 'slot', id: frag, slotIndex: index })
+                      frag && id
+                        ? handleDragStart({ from: 'slot', id, slotIndex: index })
                         : undefined
                     }
                     onDragEnd={() => setDragPayload(null)}
