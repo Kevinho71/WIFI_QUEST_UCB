@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { SecurityLevel } from '@/types/chat';
 import { useChatSession } from '@/hooks/useChatSession';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -37,6 +37,10 @@ function loadSolvedState(): Record<SecurityLevel, boolean> {
 }
 
 export function App() {
+  // Puente estable hacia el handler de victoria: `handlePasswordSolved` se define
+  // más abajo (depende de `currentLevel`) y el hook se invoca antes.
+  const victoryHandlerRef = useRef<(realPassword: string, message: string) => void>(() => {});
+
   const {
     currentLevel,
     switchLevel,
@@ -51,7 +55,11 @@ export function App() {
     latestUnlockNotification,
     justDroppedFragment,
     clearUnlockNotification,
-  } = useChatSession(1);
+  } = useChatSession(1, {
+    onVictory: useCallback((realPassword: string, message: string) => {
+      victoryHandlerRef.current(realPassword, message);
+    }, []),
+  });
 
   const [isValidatorOpen, setIsValidatorOpen] = useState(false);
   const [solvedLevels, setSolvedLevels] = useState<Record<SecurityLevel, boolean>>(loadSolvedState);
@@ -129,6 +137,11 @@ export function App() {
       message,
     });
   };
+
+  // Mantener el puente apuntando al handler más reciente (cierra sobre currentLevel).
+  useEffect(() => {
+    victoryHandlerRef.current = handlePasswordSolved;
+  });
 
   // Reiniciar conversación del nivel activo (Fase 2.2)
   const handleResetChat = () => {

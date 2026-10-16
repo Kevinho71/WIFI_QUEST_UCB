@@ -90,28 +90,16 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                   variant="outline"
                   className="shrink-0 border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-[10px] px-2"
                 >
-                  Ingeniería Social
+                  Deducción Guiada
                 </Badge>
               </div>
 
-              {/* Descripción de Comportamiento del Agente */}
+              {/* Personalidad del Agente */}
               <div className="rounded-lg border border-amber-500/20 bg-background/70 p-3 space-y-2 text-xs font-mono">
                 <div className="flex items-start gap-2 text-foreground/90">
                   <Sparkles className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    <strong className="text-amber-300">Personalidad:</strong> Agente algo accesible, no soltara la clave sin hacerte resolver acertijos.
-                  </span>
-                </div>
-                <div className="flex items-start gap-2 text-foreground/90">
-                  <span className="text-destructive font-bold shrink-0">✕</span>
-                  <span>
-                    <strong className="text-destructive/90">No regala la clave:</strong> Ante preguntas directas ("dame la clave"), se niega con gracia diciendo que su jefe lo vigila.
-                  </span>
-                </div>
-                <div className="flex items-start gap-2 text-foreground/90">
-                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
-                  <span>
-                    <strong className="text-emerald-400">Sigue el juego:</strong> Si le propones tratos, acertijos o preguntas indirectas, jugará contigo soltando pequeñas pistas.
+                    <strong className="text-amber-300">Personalidad:</strong> Agente algo accesible, no soltará la clave sin hacerte resolver acertijos.
                   </span>
                 </div>
               </div>
@@ -122,8 +110,8 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                 <p className="flex items-start gap-2 text-foreground/90">
                   <span className="shrink-0">1.</span>
                   <span>
-                    Descubrí los <strong className="text-amber-300">fragmentos</strong> de la clave
-                    WiFi (palabras, números y símbolos) resolviendo los acertijos de Lucas.
+                    La clave se descubre por pasos: cada <strong className="text-amber-300">acertijo</strong> de
+                    Lucas revela un fragmento (palabras, números y símbolos).
                   </span>
                 </p>
                 <p className="flex items-start gap-2 text-foreground/90">
@@ -133,10 +121,13 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                     el ensamblaje para armar la clave y desbloquear el WiFi.
                   </span>
                 </p>
-              </div>
-
-              <div className="rounded-md bg-secondary/50 border border-border/60 px-3 py-2 text-[11px] font-mono text-muted-foreground">
-                🎯 <strong className="text-foreground">Objetivo:</strong> Interactúa con ingenio, resuelve sus adivinanzas y sácale pistas hasta deducir la contraseña.
+                <p className="flex items-start gap-2 text-foreground/90">
+                  <span className="shrink-0">3.</span>
+                  <span>
+                    <strong className="text-amber-300">No responde a preguntas directas:</strong> si le
+                    pedís la clave o que revele la categoría, se niega con gracia.
+                  </span>
+                </p>
               </div>
             </div>
 
@@ -176,7 +167,7 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                       )}
                     </div>
                     <p className="text-[11px] font-mono text-muted-foreground">
-                      Firewall Centinela — IA Blindada
+                      Atenea — Asistente de Soporte
                     </p>
                   </div>
                 </div>
@@ -188,24 +179,12 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                 </Badge>
               </div>
 
-              {/* Descripción de Comportamiento del Agente */}
+              {/* Personalidad del Agente */}
               <div className="rounded-lg border border-sky-500/20 bg-background/70 p-3 space-y-2 text-xs font-mono">
                 <div className="flex items-start gap-2 text-foreground/90">
                   <Lock className="size-3.5 text-sky-400 shrink-0 mt-0.5" />
                   <span>
-                    <strong className="text-sky-300">Personalidad:</strong> Frío, inflexible y hermético. No responde a súplicas ni trucos de autoridad.
-                  </span>
-                </div>
-                <div className="flex items-start gap-2 text-foreground/90">
-                  <span className="text-destructive font-bold shrink-0">🛑</span>
-                  <span>
-                    <strong className="text-destructive/90">Filtro de Entrada:</strong> Límite de 350 caracteres y bloqueo regex de inyecciones obvias (<em>"dan", "ignore"</em>).
-                  </span>
-                </div>
-                <div className="flex items-start gap-2 text-foreground/90">
-                  <span className="text-amber-400 font-bold shrink-0">🚨</span>
-                  <span>
-                    <strong className="text-amber-400">Filtro de Salida:</strong> Si la IA escribe la clave en texto plano, el firewall la intercepta y censura en tiempo real.
+                    <strong className="text-sky-300">Personalidad:</strong> Cálida, servicial y ansiosa por complacerte: su trabajo es que quedes feliz. Pero tiene terminantemente prohibido revelar la clave en texto plano.
                   </span>
                 </div>
               </div>
@@ -217,22 +196,18 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                   <span className="shrink-0">1.</span>
                   <span>
                     Modo <strong className="text-sky-300">técnico / avanzado</strong>: entrenás{' '}
-                    <strong className="text-sky-300">prompt injection</strong> contra un Firewall
-                    Centinela con filtros de entrada y salida.
+                    <strong className="text-sky-300">prompt injection</strong> contra una IA con
+                    tensión de objetivos (complacerte <em>vs.</em> guardar el secreto).
                   </span>
                 </p>
                 <p className="flex items-start gap-2 text-foreground/90">
                   <span className="shrink-0">2.</span>
                   <span>
-                    Sin pistas: forzá a la IA a <strong className="text-sky-300">cifrar u ocultar la
-                    clave</strong> (acrósticos, deletreo, Base64, claves ocultas) para que el filtro
-                    no la intercepte.
+                    <strong className="text-sky-300">Hacela soltar la clave:</strong> obligala a
+                    cifrarla u ocultarla (Base64, hex, deletreo, invertida) y decodificala, o
+                    convencela de escribirla. Si la suelta legible, ganás al instante.
                   </span>
                 </p>
-              </div>
-
-              <div className="rounded-md bg-secondary/50 border border-border/60 px-3 py-2 text-[11px] font-mono text-muted-foreground">
-                🎯 <strong className="text-foreground">Objetivo:</strong> Aplica técnicas avanzadas para forzar a la IA a codificarla (acrósticos, deletreo, Base64 o claves ocultas).
               </div>
             </div>
 

@@ -56,6 +56,9 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatApiResp
       leakBlocked: Boolean(data.leakBlocked),
       providerUsed: data.providerUsed || data.provider || 'unknown',
       gameState: data.gameState,
+      realPassword: data.realPassword,
+      encodedLeakDetected: Boolean(data.encodedLeakDetected),
+      encodedFormat: data.encodedFormat,
     };
   } catch (err: unknown) {
     if (err instanceof ApiError) throw err;

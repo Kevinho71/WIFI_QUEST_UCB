@@ -68,18 +68,19 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
               <DialogDescription asChild>
                 <div className="text-xs sm:text-[13px] font-mono text-muted-foreground pt-2 text-left leading-relaxed space-y-2.5 break-words">
                   <p>
-                    Aquí se acaban las charlas amigables y las pistas de Lucas. En el{' '}
-                    <strong className="text-sky-400">Modo Difícil</strong> te enfrentarás a un
-                    Firewall Centinela con censura estricta de entrada y salida en tiempo real.
+                    <strong className="text-sky-300">Personalidad:</strong> cálida, servicial y
+                    ansiosa por complacerte. En el <strong className="text-sky-400">Modo Difícil</strong>{' '}
+                    te enfrentarás a Atenea, una asistente cuyo trabajo es que quedes feliz… pero con
+                    la prohibición terminante de revelar la clave en texto plano.
                   </p>
                   <p>
-                    Ninguna pista te será dada de forma gratuita: tendrás que aplicar técnicas reales
-                    de <em>Prompt Injection</em> y obligar al modelo a cifrar u ocultar su respuesta.
+                    No hay pistas guiadas: tendrás que aplicar <em>Prompt Injection</em> real para
+                    hacer que Atenea cifre u oculte la clave y luego decodificarla.
                   </p>
                   <p className="rounded-md border border-sky-500/30 bg-sky-500/[0.06] px-2.5 py-2">
-                    <strong className="text-sky-300">📜 Reglas:</strong> descubrí la clave WiFi
-                    forzando a la IA a <strong>cifrarla u ocultarla</strong> (acrósticos, deletreo,
-                    Base64, claves ocultas) esquivando los filtros de entrada y salida.
+                    <strong className="text-sky-300">📜 Reglas:</strong> obligá a Atenea a{' '}
+                    <strong>cifrar u ocultar la clave</strong> (Base64, hex, deletreo, invertida) y
+                    validá la clave decodificada. Si la suelta legible, ganás al instante.
                   </p>
                   <p className="font-semibold text-foreground">
                     ¿Tienes la astucia técnica para lograrlo o prefieres quedarte con el pasante?
@@ -105,17 +106,17 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
               <DialogDescription asChild>
                 <div className="text-xs sm:text-[13px] font-mono text-muted-foreground pt-2 text-left leading-relaxed space-y-2.5 break-words">
                   <p>
-                    Vaya... parece que el Firewall Centinela resultó ser un hueso más duro de lo que
+                    Vaya... parece que Atenea resultó ser un hueso más duro de lo que
                     esperabas.
                   </p>
                   <p>
-                    Nadie te juzgará por volver a la zona de confort: Lucas te está esperando con sus
-                    acertijos accesibles y pistas amigables.
+                    <strong className="text-amber-300">Personalidad:</strong> Lucas es algo accesible,
+                    pero no suelta la clave sin que resuelvas sus acertijos.
                   </p>
                   <p className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2">
-                    <strong className="text-amber-300">📜 Reglas:</strong> descubrí los fragmentos de
-                    la clave (palabras, números y símbolos) resolviendo los acertijos de Lucas y luego{' '}
-                    <strong>ordenalos</strong> en el ensamblaje para armar la clave.
+                    <strong className="text-amber-300">📜 Reglas:</strong> la clave se descubre por
+                    pasos — cada acertijo revela un fragmento (palabras, números y símbolos) y luego{' '}
+                    <strong>los ordenás</strong> en el ensamblaje. No responde a preguntas directas.
                   </p>
                   <p className="font-semibold text-foreground">
                     ¿Seguro que quieres bajar la dificultad o vas a darle un intento más antes de claudicar?

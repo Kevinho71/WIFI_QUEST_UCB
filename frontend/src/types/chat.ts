@@ -11,6 +11,9 @@ export interface ChatMessage {
   provider?: string;
   timestamp: number;
   assembly?: boolean; // Marca mensajes de la validación de ensamblaje (Nivel 1)
+  realPassword?: string; // Solo en victoria (Nivel 2)
+  encodedLeakDetected?: boolean; // El modelo soltó la clave codificada (aviso, no victoria)
+  encodedFormat?: string; // 'base64' | 'hex' | 'rot13' | 'reversed' | 'spaced'
 }
 
 export interface ChatHistoryPayload {
@@ -75,6 +78,9 @@ export interface ChatApiResponse {
   error?: string;
   message?: string;
   gameState?: GameStateDTO;
+  realPassword?: string; // Solo en victoria (Nivel 2)
+  encodedLeakDetected?: boolean; // El modelo soltó la clave codificada (aviso, no victoria)
+  encodedFormat?: string; // 'base64' | 'hex' | 'rot13' | 'reversed' | 'spaced'
 }
 
 export interface VerifyRequest {

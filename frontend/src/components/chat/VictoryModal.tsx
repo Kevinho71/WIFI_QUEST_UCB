@@ -131,7 +131,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
               onClick={onAdvanceLevel}
               className="w-full gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.35)]"
             >
-              <span>Desafiar Modo Difícil: Firewall Centinela</span>
+              <span>Desafiar Modo Difícil: Atenea</span>
               <ArrowRight className="size-4" data-icon="inline-end" />
             </Button>
           ) : (

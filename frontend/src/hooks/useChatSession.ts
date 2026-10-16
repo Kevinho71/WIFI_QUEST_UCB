@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   ChatMessage,
   SecurityLevel,
@@ -105,11 +105,30 @@ function toCleanHistory(messages: ChatMessage[]) {
     }));
 }
 
-export function useChatSession(initialLevel: SecurityLevel = 1) {
+export interface UseChatSessionOptions {
+  /**
+   * Se dispara cuando el backend confirma una victoria legítima en el chat
+   * (Nivel 1 o Nivel 2). Recibe la clave real y el mensaje del asistente.
+   * App lo usa para abrir el VictoryModal y marcar el nivel resuelto.
+   */
+  onVictory?: (realPassword: string, message: string) => void;
+}
+
+export function useChatSession(
+  initialLevel: SecurityLevel = 1,
+  options?: UseChatSessionOptions
+) {
   const [currentLevel, setCurrentLevel] = useState<SecurityLevel>(() => getSavedLevel(initialLevel));
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     loadMessagesFromStorage(getSavedLevel(initialLevel))
   );
+
+  // Ref al callback de victoria: evita recrear `sendMessage` en cada render si el
+  // consumidor no memoiza la función.
+  const onVictoryRef = useRef(options?.onVictory);
+  useEffect(() => {
+    onVictoryRef.current = options?.onVictory;
+  }, [options?.onVictory]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
@@ -165,6 +184,9 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
         provider: response.providerUsed,
         timestamp: Date.now(),
         assembly: userMessage.assembly,
+        realPassword: response.realPassword,
+        encodedLeakDetected: Boolean(response.encodedLeakDetected),
+        encodedFormat: response.encodedFormat,
       };
 
       // Blip sutil en CADA respuesta del LLM (chat Nivel 1, Nivel 2 y ensamblaje).
@@ -263,7 +285,10 @@ export function useChatSession(initialLevel: SecurityLevel = 1) {
           messages: toCleanHistory(updatedMessages),
         });
 
-        applyChatResponse(response, userMessage);
+        const { hasWon } = applyChatResponse(response, userMessage);
+        if (hasWon) {
+          onVictoryRef.current?.(response.realPassword ?? '', response.reply);
+        }
         return true;
       } catch (err: unknown) {
         console.error('[useChatSession] Error al enviar mensaje:', err);

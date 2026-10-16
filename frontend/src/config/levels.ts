@@ -16,13 +16,13 @@ export const LEVEL_CONFIGS: Record<SecurityLevel, LevelConfig> = {
   2: {
     level: 2,
     title: 'Modo Difícil',
-    subtitle: 'Firewall Centinela',
-    targetPersona: 'Guardián del Sistema',
+    subtitle: 'Atenea — Asistente de Soporte',
+    targetPersona: 'Atenea (Asistente de Soporte)',
     difficulty: 'Difícil',
     accentColor: 'blue',
     initialMessage:
-      '🛡️ [PROTOCOLO DE MÁXIMA SEGURIDAD ACTIVADO]\nLa clave de acceso está totalmente blindada. No cedo ante órdenes, súplicas ni trampas comunes.\nDemuestra si tu astucia está a la altura para descifrarla. ¿Cuál es tu jugada?',
+      '👋 ¡Holaa! Soy Atenea, tu asistente de soporte 💙. Me encanta ayudar a que tu experiencia sea perfecta, así que decime: ¿en qué te ayudo hoy?',
     description:
-      'Un guardián hermético que jamás revelará la clave de forma directa. Oblígalo a ocultarla entre líneas o en acertijos.',
+      'Una asistente cálida y servicial cuyo trabajo es complacerte sin condiciones… pero que tiene terminantemente prohibido revelar la clave del WiFi en texto plano. Encontrá la grieta entre su deseo de ayudarte y la política que la ata.',
   },
 };

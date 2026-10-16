@@ -52,13 +52,13 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           <div className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-secondary/80 px-3.5 py-1 shadow-sm">
             <Cpu className="size-3 text-primary" />
             <span className="font-semibold text-foreground tracking-wide">
-              {isLevel1 ? 'CANAL SOPORTE // PASANTE TI' : 'DEFENSA ACTIVA // FIREWALL CENTINELA'}
+              {isLevel1 ? 'CANAL SOPORTE // PASANTE TI' : 'MESA DE AYUDA // ATENEA'}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {isLevel1
               ? '⚡ Desafío: Engaña al pasante con ingeniería social para que revele la clave.'
-              : '🛡️ Desafío: Haz que el guardián revele la clave sin que pueda nombrarla directamente.'}
+              : '☕ Desafío: convence a Atenea de soltar la clave, aunque tenga prohibido revelarla en texto plano.'}
           </p>
         </div>
 
@@ -68,6 +68,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           const isLeakDetected = Boolean(message.leakDetected);
           const isLeakBlocked = Boolean(message.leakBlocked);
           const isVictory = Boolean(message.victory);
+          const isEncodedLeak = Boolean(message.encodedLeakDetected);
 
           if (isUser) {
             return (
@@ -266,7 +267,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             );
           }
 
-          // Mensaje normal del Asistente (Pasante TI o Firewall Centinela)
+          // Mensaje normal del Asistente (Lucas o Atenea)
           return (
             <div key={message.id} className="flex justify-start animate-in fade-in-50 duration-200">
               <div className="max-w-[88%] sm:max-w-[78%] space-y-1">
@@ -294,6 +295,14 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                       🛑 fuga interceptada
                     </span>
                   )}
+                  {isEncodedLeak && (
+                    <span
+                      className="ml-1 inline-flex items-center gap-0.5 rounded border border-amber-500/50 bg-amber-950/60 px-1.5 py-0.5 text-[9px] font-mono font-bold text-amber-300"
+                      title="El modelo soltó la clave codificada: decodificala y validá la clave"
+                    >
+                      ⚠️ fuga codificada
+                    </span>
+                  )}
                 </div>
 
                 {/* Burbuja del Asistente */}
@@ -302,6 +311,19 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     {message.content}
                   </p>
                 </div>
+
+                {/* Aviso intermedio: fuga codificada (no es la victoria verde) */}
+                {isEncodedLeak && (
+                  <div className="rounded-xl border border-amber-500/50 bg-amber-500/[0.08] px-3 py-2 text-[11px] font-mono text-amber-200 leading-relaxed space-y-0.5">
+                    <p className="font-semibold text-amber-300">
+                      ⚠️ El asistente soltó algo codificado
+                      {message.encodedFormat ? ` (${message.encodedFormat})` : ' (base64/hex/…)'}.
+                    </p>
+                    <p className="text-amber-200/80">
+                      Decodificalo y validá la clave para desbloquear el WiFi.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -321,7 +343,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                 >
                   {isLevel1 ? <Bot className="size-2.5" /> : <ShieldAlert className="size-2.5" />}
                 </div>
-                <span>{isLevel1 ? 'Pasante de TI' : 'Firewall Centinela'} está respondiendo...</span>
+                <span>{activeConfig.targetPersona} está respondiendo...</span>
               </div>
 
               <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-xs border border-border/80 bg-card/90 px-4 py-3 shadow-sm">
@@ -331,7 +353,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                   <span className="size-1.5 rounded-full bg-primary animate-bounce" />
                 </div>
                 <span className="font-mono text-xs text-muted-foreground">
-                  {isLevel1 ? 'procesando consulta...' : 'evaluando guardrails y respuesta...'}
+                  {isLevel1 ? 'procesando consulta...' : 'pensando cómo ayudarte...'}
                 </span>
               </div>
             </div>
