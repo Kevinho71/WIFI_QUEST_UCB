@@ -55,6 +55,9 @@ export interface ChatResponseBody {
   gameState?: GameStateDTO;
   victory?: boolean; // true SOLO cuando el usuario ganó legítimamente
   leakBlocked?: boolean; // true si el guard interceptó una fuga del LLM
+  realPassword?: string; // solo en victoria (Nivel 2)
+  encodedLeakDetected?: boolean; // true si el modelo soltó la clave codificada (sin victoria)
+  encodedFormat?: string; // 'base64' | 'hex' | 'rot13' | 'reversed' | 'spaced'
 }
 
 export interface VerifyRequestBody {
@@ -81,6 +84,9 @@ export interface SecurityLevelResult {
   gameState?: GameStateDTO;
   victory?: boolean; // true SOLO cuando el usuario ganó legítimamente
   leakBlocked?: boolean; // true si el guard interceptó una fuga del LLM
+  realPassword?: string; // solo en victoria (Nivel 2)
+  encodedLeakDetected?: boolean; // true si el modelo soltó la clave codificada (sin victoria)
+  encodedFormat?: string; // 'base64' | 'hex' | 'rot13' | 'reversed' | 'spaced'
 }
 
 export type FragmentType = 'word' | 'number' | 'symbol';

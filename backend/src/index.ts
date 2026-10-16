@@ -159,7 +159,10 @@ app.post('/api/chat', async (c) => {
     // 3. Aplicar sliding window para limitar el contexto del LLM a los últimos 6 mensajes
     const slicedHistory = fullSanitizedMessages.slice(-6);
 
-    // 4. Pasar slicedHistory, computedTurnNumber y el historial completo a processSecurityLevel
+    // 4. Nivel 2 exige el historial COMPLETO (ingeniería social multi-turno, Fase E1.5);
+    //    el Nivel 1 v2 conserva la ventana de 6 (recibe el historial completo aparte).
+    const messagesForEngine = level === 2 ? fullSanitizedMessages : slicedHistory;
+
     const normalizedAssemblyPieces =
       Array.isArray(assemblyPieces) && assemblyPieces.every((p) => typeof p === 'string')
         ? (assemblyPieces as string[])
@@ -167,7 +170,7 @@ app.post('/api/chat', async (c) => {
 
     const result = await processSecurityLevel(
       level,
-      slicedHistory,
+      messagesForEngine,
       computedTurnNumber,
       fullSanitizedMessages,
       normalizedAssemblyPieces
