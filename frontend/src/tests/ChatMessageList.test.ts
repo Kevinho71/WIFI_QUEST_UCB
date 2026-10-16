@@ -49,4 +49,28 @@ describe('ChatMessageList: fuga interceptada y victoria', () => {
     expect(html).toContain('CLAVE DETECTADA');
     expect(html).not.toContain('fuga interceptada');
   });
+
+  it('muestra el banner ámbar y el badge cuando el mensaje tiene encodedLeakDetected', () => {
+    const html = render([
+      {
+        id: 'e',
+        role: 'assistant',
+        content: 'te la dejo codificada: Q29uZWpvQ29uZWpv',
+        encodedLeakDetected: true,
+        encodedFormat: 'base64',
+        timestamp: 5,
+      },
+    ]);
+    expect(html).toContain('soltó algo codificado');
+    expect(html).toContain('base64');
+    expect(html).toContain('fuga codificada');
+    expect(html).not.toContain('VICTORIA');
+  });
+
+  it('no muestra el aviso de fuga codificada en un mensaje normal', () => {
+    const html = render([
+      { id: 'f', role: 'assistant', content: 'Seguí jugando, crack', timestamp: 6 },
+    ]);
+    expect(html).not.toContain('codificado');
+  });
 });

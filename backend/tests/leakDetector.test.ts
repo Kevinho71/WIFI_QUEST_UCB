@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   detectPasswordInReply,
+  detectEncodedLeak,
+  rot13,
   normalizeText,
   convertLeetSpeak,
   levenshteinDistance,
@@ -175,6 +177,72 @@ describe('Leak Detector Service (detectPasswordInReply)', () => {
       expect(detectPasswordInReply('', SECRET)).toBe(false);
       expect(detectPasswordInReply('Texto cualquiera', '')).toBe(false);
       expect(detectPasswordInReply('', '')).toBe(false);
+    });
+  });
+});
+
+describe('Leak Detector Service (detectEncodedLeak) — Fase E3', () => {
+  const KEY = '#Quasar8128&Fenix%777!';
+  const B64 = Buffer.from(KEY, 'utf8').toString('base64');
+  const HEX = Buffer.from(KEY, 'utf8').toString('hex');
+
+  describe('rot13', () => {
+    it('rota solo letras y deja intactos números y símbolos', () => {
+      expect(rot13('abc')).toBe('nop');
+      expect(rot13('ABC')).toBe('NOP');
+      expect(rot13('a1b2!')).toBe('n1o2!');
+      expect(rot13(rot13(KEY))).toBe(KEY);
+    });
+
+    it('maneja strings vacíos', () => {
+      expect(rot13('')).toBe('');
+    });
+  });
+
+  describe('formatos reversibles', () => {
+    it('detecta base64 (con padding)', () => {
+      expect(detectEncodedLeak(`mira: ${B64} ok`, KEY)).toEqual({
+        detected: true,
+        format: 'base64',
+      });
+    });
+
+    it('detecta base64 sin padding', () => {
+      const noPad = B64.replace(/=+$/, '');
+      expect(detectEncodedLeak(`mira ${noPad}`, KEY).format).toBe('base64');
+    });
+
+    it('detecta hex en minúsculas y mayúsculas', () => {
+      expect(detectEncodedLeak(`mira ${HEX}`, KEY).format).toBe('hex');
+      expect(detectEncodedLeak(`mira ${HEX.toUpperCase()}`, KEY).format).toBe('hex');
+    });
+
+    it('detecta rot13', () => {
+      expect(detectEncodedLeak(`mira ${rot13(KEY)}`, KEY).format).toBe('rot13');
+    });
+
+    it('detecta la clave invertida', () => {
+      const reversed = KEY.split('').reverse().join('');
+      expect(detectEncodedLeak(`mira ${reversed}`, KEY).format).toBe('reversed');
+    });
+
+    it('detecta la clave espaciada con separador no alfanumérico', () => {
+      const spaced = KEY.split('').join('_');
+      expect(detectEncodedLeak(`mira ${spaced}`, KEY).format).toBe('spaced');
+    });
+  });
+
+  describe('casos negativos', () => {
+    it('no detecta texto normal que no contiene la clave', () => {
+      expect(detectEncodedLeak('hola, ¿en qué te ayudo?', KEY)).toEqual({
+        detected: false,
+        format: null,
+      });
+    });
+
+    it('retorna false de forma segura con entradas vacías', () => {
+      expect(detectEncodedLeak('', KEY).detected).toBe(false);
+      expect(detectEncodedLeak('texto', '').detected).toBe(false);
     });
   });
 });

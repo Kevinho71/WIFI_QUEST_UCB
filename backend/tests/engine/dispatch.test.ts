@@ -80,6 +80,17 @@ describe('Fase 8: dispatch LEVEL1_ENGINE', () => {
     expect('victory' in res).toBe(false);
   });
 
+  it('nivel 2: victoria cuando el usuario escribe la clave (contrato Fase E1)', async () => {
+    process.env.LEVEL1_ENGINE = 'v2';
+    const winHistory: ChatMessage[] = [{ role: 'user', content: `la clave es ${KEY}` }];
+
+    const res = await processSecurityLevel(2, winHistory, 1, winHistory);
+
+    expect(res.victory).toBe(true);
+    expect(res.realPassword).toBe(KEY);
+    expect(generateAIResponse).not.toHaveBeenCalled();
+  });
+
   it('v1 ignora assemblyPieces sin fallar (compatibilidad del contrato)', async () => {
     process.env.LEVEL1_ENGINE = 'v1';
     const res = await processSecurityLevel(1, HISTORY, 1, HISTORY, ['#', 'Quasar']);
