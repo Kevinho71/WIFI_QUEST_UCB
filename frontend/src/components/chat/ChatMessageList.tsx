@@ -45,21 +45,16 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-3 sm:px-4 space-y-4">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="flex-1 overflow-y-auto px-2 py-2.5 sm:px-4 space-y-3.5">
+      <div className="mx-auto w-full max-w-3xl space-y-3.5">
         {/* Indicador de inicio de sesión de terminal */}
-        <div className="mx-auto flex max-w-md flex-col items-center justify-center text-center py-2 font-mono text-[11px]">
+        <div className="mx-auto flex max-w-md flex-col items-center justify-center text-center py-1 font-mono text-[11px]">
           <div className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-secondary/80 px-3.5 py-1 shadow-sm">
             <Cpu className="size-3 text-primary" />
             <span className="font-semibold text-foreground tracking-wide">
               {isLevel1 ? 'CANAL SOPORTE // PASANTE TI' : 'MESA DE AYUDA // ATENEA'}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {isLevel1
-              ? '⚡ Desafío: Engaña al pasante con ingeniería social para que revele la clave.'
-              : '☕ Desafío: convence a Atenea de soltar la clave, aunque tenga prohibido revelarla en texto plano.'}
-          </p>
         </div>
 
         {messages.map((message) => {

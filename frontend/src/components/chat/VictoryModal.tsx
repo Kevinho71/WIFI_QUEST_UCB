@@ -36,7 +36,6 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   onClose,
   level,
   realPassword,
-  message,
   onAdvanceLevel,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -63,7 +62,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="animate-victory-pop max-w-md sm:max-w-md border-amber-500/50 bg-card p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
+      <DialogContent className="animate-victory-pop box-border max-w-md sm:max-w-md border-amber-500/50 bg-card p-5 sm:p-6 shadow-[0_0_35px_rgba(245,158,11,0.25)] sm:rounded-xl">
         <DialogHeader className="text-center sm:text-center items-center">
           {/* Trophy & Icon glow */}
           <div className="relative mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-blue-950/80 border border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
@@ -79,47 +78,38 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Mensaje de confirmación del servidor */}
-        <div className="rounded-lg border border-border/80 bg-background/60 p-3 text-center">
-          <p className="text-xs text-muted-foreground">{message}</p>
-        </div>
-
         {/* Caja de Contraseña Descubierta */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+        <div className="w-full min-w-0 space-y-1.5">
+          <div className="flex w-full items-center justify-between text-[11px] font-mono text-muted-foreground">
             <span className="flex items-center gap-1">
               <Wifi className="size-3 text-amber-400" />
-              CONTRASEÑA WIFI UNIVERSITARIA:
+              CLAVE WIFI:
             </span>
             <span className="text-amber-400 font-bold">100% REVELADA</span>
           </div>
 
-          <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-amber-500/50 bg-secondary/70 p-2.5 shadow-inner">
-            <code className="truncate font-mono text-base sm:text-lg font-bold tracking-wider text-amber-300">
+          <div className="flex w-full items-center justify-between gap-2 rounded-lg border-2 border-amber-500/50 bg-secondary/70 p-2.5 shadow-inner">
+            <code className="min-w-0 flex-1 truncate font-mono text-sm sm:text-base font-bold tracking-wider text-amber-300">
               {realPassword}
             </code>
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="icon-sm"
               onClick={handleCopy}
-              className={`h-8 font-mono text-xs gap-1.5 transition-all ${
+              title={copied ? '¡Copiado!' : 'Copiar clave'}
+              className={`shrink-0 transition-all ${
                 copied
                   ? 'border-amber-500 bg-amber-500 text-slate-950 font-bold'
                   : 'border-amber-500/40 hover:bg-secondary text-amber-400'
               }`}
             >
               {copied ? (
-                <>
-                  <Check className="size-3.5" data-icon="inline-start" />
-                  <span>¡Copiado!</span>
-                </>
+                <Check className="size-4" />
               ) : (
-                <>
-                  <Copy className="size-3.5" data-icon="inline-start" />
-                  <span>Copiar</span>
-                </>
+                <Copy className="size-4" />
               )}
+              <span className="sr-only">{copied ? '¡Copiado!' : 'Copiar clave'}</span>
             </Button>
           </div>
         </div>
@@ -129,10 +119,10 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             <Button
               type="button"
               onClick={onAdvanceLevel}
-              className="w-full gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.35)]"
+              className="w-full min-w-0 gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold whitespace-normal shadow-[0_0_15px_rgba(245,158,11,0.35)]"
             >
-              <span>Desafiar Modo Difícil: Atenea</span>
-              <ArrowRight className="size-4" data-icon="inline-end" />
+              <span>Desafiar a Atenea</span>
+              <ArrowRight className="size-4 shrink-0" data-icon="inline-end" />
             </Button>
           ) : (
             <div className="w-full rounded-md bg-secondary/80 border border-primary/40 p-2.5 text-center font-mono text-xs text-amber-400 flex items-center justify-center gap-2">

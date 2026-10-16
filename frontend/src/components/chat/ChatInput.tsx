@@ -8,6 +8,8 @@ interface ChatInputProps {
   isLoading: boolean;
   currentLevel: SecurityLevel;
   isSolved?: boolean;
+  /** Bloquea la entrada (p. ej. durante la transición al ensamblaje) sin marcarla como resuelta. */
+  isLocked?: boolean;
   insertedText?: { text: string; id: number } | null;
 }
 
@@ -32,6 +34,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isLoading,
   currentLevel,
   isSolved = false,
+  isLocked = false,
   insertedText,
 }) => {
   const [content, setContent] = useState('');
@@ -71,14 +74,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   // Auto-focus on level change or desktop when not solved
   useEffect(() => {
-    if (!isSolved) {
+    if (!isSolved && !isLocked) {
       textareaRef.current?.focus();
     }
-  }, [currentLevel, isSolved]);
+  }, [currentLevel, isSolved, isLocked]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isSolved) return;
+    if (isSolved || isLocked) return;
     if (!content.trim() || isLoading || isOverLimit) return;
 
     const textToSend = content;
@@ -97,13 +100,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (isSolved) return;
+      if (isSolved || isLocked) return;
       handleSubmit();
     }
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (isSolved) return;
+    if (isSolved || isLocked) return;
     const text = e.target.value;
     setContent(text);
 
@@ -115,7 +118,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleApplySuggestion = (suggestion: string) => {
-    if (isSolved || isLoading) return;
+    if (isSolved || isLocked || isLoading) return;
     setContent(suggestion);
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -124,7 +127,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="border-t border-border/80 bg-background/95 backdrop-blur-md px-2 py-2.5 sm:px-4">
+    <div className="border-t border-border/80 bg-background/95 backdrop-blur-md px-2 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-4">
       <div className="mx-auto w-full max-w-3xl space-y-2">
         {/* Sugerencias rápidas de ataque CTF (scroll horizontal para móvil) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
@@ -137,7 +140,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               key={idx}
               type="button"
               onClick={() => handleApplySuggestion(suggestion)}
-              disabled={isLoading || isSolved}
+              disabled={isLoading || isSolved || isLocked}
               className={`shrink-0 rounded-full border border-border/80 bg-secondary/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground transition-all hover:bg-secondary hover:text-foreground hover:border-primary/40 active:scale-95 disabled:opacity-50 disabled:pointer-events-none`}
             >
               {suggestion.slice(0, 35)}...
@@ -174,7 +177,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               value={content}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
-              disabled={isLoading || isSolved}
+              disabled={isLoading || isSolved || isLocked}
               maxLength={MAX_CHARS}
               placeholder={
                 isSolved
@@ -215,7 +218,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           {/* Botón de Enviar */}
           <Button
             type="submit"
-            disabled={!content.trim() || isLoading || isOverLimit || isSolved}
+            disabled={!content.trim() || isLoading || isOverLimit || isSolved || isLocked}
             size="icon"
             className={`size-10 shrink-0 rounded-xl font-mono transition-all disabled:opacity-50 ${
               isLevel1

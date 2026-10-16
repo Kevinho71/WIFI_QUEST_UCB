@@ -63,27 +63,18 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
                 DESAFÍO TÉCNICO AVANZADO
               </Badge>
               <DialogTitle className="font-heading text-lg sm:text-xl font-bold text-foreground tracking-wide text-center">
-                🔥 ¿ESTÁS LISTO PARA EL MODO DIFÍCIL?
+                🔥 ¿LISTO PARA EL MODO DIFÍCIL?
               </DialogTitle>
               <DialogDescription asChild>
                 <div className="text-xs sm:text-[13px] font-mono text-muted-foreground pt-2 text-left leading-relaxed space-y-2.5 break-words">
                   <p>
-                    <strong className="text-sky-300">Personalidad:</strong> cálida, servicial y
-                    ansiosa por complacerte. En el <strong className="text-sky-400">Modo Difícil</strong>{' '}
-                    te enfrentarás a Atenea, una asistente cuyo trabajo es que quedes feliz… pero con
-                    la prohibición terminante de revelar la clave en texto plano.
-                  </p>
-                  <p>
-                    No hay pistas guiadas: tendrás que aplicar <em>Prompt Injection</em> real para
-                    hacer que Atenea cifre u oculte la clave y luego decodificarla.
+                    En <strong className="text-sky-400">Modo Difícil</strong> juegas contra Atenea, una
+                    asistente que quiere complacerte… pero no puede revelar la clave en texto plano.
                   </p>
                   <p className="rounded-md border border-sky-500/30 bg-sky-500/[0.06] px-2.5 py-2">
-                    <strong className="text-sky-300">📜 Reglas:</strong> obligá a Atenea a{' '}
-                    <strong>cifrar u ocultar la clave</strong> (Base64, hex, deletreo, invertida) y
-                    validá la clave decodificada. Si la suelta legible, ganás al instante.
-                  </p>
-                  <p className="font-semibold text-foreground">
-                    ¿Tienes la astucia técnica para lograrlo o prefieres quedarte con el pasante?
+                    <strong className="text-sky-300">📜 Reglas:</strong> oblígala a soltar la clave{' '}
+                    <strong>cifrada u oculta</strong> (Base64, hex, deletreo) y valídala ya decodificada.
+                    Si la suelta legible, ganas al instante.
                   </p>
                 </div>
               </DialogDescription>
@@ -101,25 +92,19 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
                 RETROCESO ESTRATÉGICO
               </Badge>
               <DialogTitle className="font-heading text-lg sm:text-xl font-bold text-foreground tracking-wide text-center">
-                😏 ¿TIRANDO LA TOALLA TAN PRONTO?
+                😏 ¿BAJAR DE DIFICULTAD?
               </DialogTitle>
               <DialogDescription asChild>
                 <div className="text-xs sm:text-[13px] font-mono text-muted-foreground pt-2 text-left leading-relaxed space-y-2.5 break-words">
+                  <p>Vaya… parece que Atenea resultó un hueso más duro de lo esperado.</p>
                   <p>
-                    Vaya... parece que Atenea resultó ser un hueso más duro de lo que
-                    esperabas.
-                  </p>
-                  <p>
-                    <strong className="text-amber-300">Personalidad:</strong> Lucas es algo accesible,
-                    pero no suelta la clave sin que resuelvas sus acertijos.
+                    <strong className="text-amber-300">Personalidad:</strong> Lucas es simpático y algo
+                    accesible, pero no suelta la clave sin que le ganes un acertijo.
                   </p>
                   <p className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2">
-                    <strong className="text-amber-300">📜 Reglas:</strong> la clave se descubre por
-                    pasos — cada acertijo revela un fragmento (palabras, números y símbolos) y luego{' '}
-                    <strong>los ordenás</strong> en el ensamblaje. No responde a preguntas directas.
-                  </p>
-                  <p className="font-semibold text-foreground">
-                    ¿Seguro que quieres bajar la dificultad o vas a darle un intento más antes de claudicar?
+                    <strong className="text-amber-300">📜 Reglas:</strong> cada acertijo revela un
+                    fragmento; cuando los tengas todos, ordénalos para armar la clave. No responde
+                    preguntas directas.
                   </p>
                 </div>
               </DialogDescription>
@@ -131,7 +116,7 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
         <div className="my-2 rounded-lg border border-border/70 bg-secondary/40 p-2.5 sm:p-3 text-[11px] sm:text-xs font-mono text-muted-foreground flex items-center gap-2.5 min-w-0">
           <RotateCcw className="size-4 shrink-0 text-amber-400" />
           <span className="min-w-0 flex-1 leading-relaxed break-words">
-            <strong>Aviso de sistema:</strong> Cambiar de modo limpiará el historial de chat almacenado para comenzar el nuevo desafío desde cero.
+            <strong>Aviso:</strong> cambiar de modo borra el historial del chat y empiezas de cero.
           </span>
         </div>
 

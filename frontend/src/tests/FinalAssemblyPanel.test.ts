@@ -53,4 +53,22 @@ describe('FinalAssemblyPanel (render estático)', () => {
     expect(html).toContain('Validar ensamblaje');
     expect(html).toContain('Coloca todas las piezas');
   });
+
+  it('no etiqueta las piezas con "colocado" cuando no hay feedback de validación', () => {
+    const html = render(GAME_STATE);
+    expect(html).not.toContain('colocado');
+    expect(html).not.toContain('Piezas en su lugar');
+  });
+
+  it('muestra el contador analógico (con dígitos) sin la etiqueta de broma', () => {
+    const html = render(GAME_STATE);
+    expect(html).toContain('01:00');
+    expect(html).not.toContain('en broma');
+  });
+
+  it('numera las casillas en una lista vertical de arriba hacia abajo', () => {
+    const html = render(GAME_STATE);
+    expect(html).toContain('Casilla 1 vacía');
+    expect(html).toContain('Casilla 2 vacía');
+  });
 });

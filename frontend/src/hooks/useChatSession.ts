@@ -240,16 +240,14 @@ export function useChatSession(
         const newGameState = response.gameState;
         setGameState((prev) => {
           const prevCount = prev?.discoveredCount ?? 0;
-          const prevPhase = prev?.phase;
-          const isTransitionToAssembly =
-            prevPhase !== 'assembly' && newGameState.phase === 'assembly';
           const isNewUnlock =
             newGameState.discoveredCount > prevCount ||
             Boolean(newGameState.justUnlockedFragment);
 
-          if (isTransitionToAssembly) {
-            audioService.playAssemblyPhaseSound();
-          } else if (isNewUnlock) {
+          // El último fragmento que dispara la transición a ensamblaje también debe
+          // mostrar su animación/sonido como cualquier otro. La música de transición
+          // la dispara App cuando revela el panel (tras el delay).
+          if (isNewUnlock) {
             if (newGameState.isCombo) {
               audioService.playComboSound();
             } else {

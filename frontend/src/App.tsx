@@ -91,8 +91,31 @@ export function App() {
   });
 
   const isSolved = Boolean(solvedLevels[currentLevel]);
-  // Pantalla dedicada de ensamblaje final (Nivel 1, fase assembly, sin resolver aún)
-  const isAssemblyPhase = currentLevel === 1 && gameState?.phase === 'assembly' && !isSolved;
+  // Pantalla dedicada de ensamblaje final (Nivel 1). Se mantiene montada tras la
+  // victoria (hold) para que se vea la animación de acierto antes del modal.
+  const [assemblyVictoryHold, setAssemblyVictoryHold] = useState(false);
+  const pendingVictoryRef = useRef<{ realPassword: string; message: string } | null>(null);
+  const isRawAssemblyPhase =
+    currentLevel === 1 &&
+    !isSolved &&
+    (gameState?.phase === 'assembly' ||
+      (assemblyVictoryHold && gameState?.phase === 'solved'));
+  const [assemblyReady, setAssemblyReady] = useState(false);
+
+  useEffect(() => {
+    if (!isRawAssemblyPhase) return undefined;
+    const timer = window.setTimeout(() => {
+      setAssemblyReady(true);
+      void audioService.playAssemblyPhaseSound();
+    }, 1000);
+    return () => {
+      window.clearTimeout(timer);
+      setAssemblyReady(false);
+    };
+  }, [isRawAssemblyPhase]);
+
+  const isAssemblyPhase = isRawAssemblyPhase && assemblyReady;
+  const isAssemblyTransitioning = isRawAssemblyPhase && !isAssemblyPhase;
 
   // Persistir estado de niveles resueltos en localStorage y sessionStorage
   useEffect(() => {
@@ -111,6 +134,28 @@ export function App() {
     audioService.updateLevel(currentLevel);
   }, [currentLevel]);
 
+  // Commit de victoria: marca el nivel resuelto y abre el modal.
+  const commitVictory = (level: SecurityLevel, realPassword: string, message: string) => {
+    setSolvedLevels((prev) => ({
+      ...prev,
+      [level]: true,
+    }));
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wifi_quest_solved', 'true');
+      localStorage.setItem(SOLVED_STORAGE_KEYS[level], 'true');
+      sessionStorage.setItem('wifi_quest_solved', 'true');
+      sessionStorage.setItem(SOLVED_STORAGE_KEYS[level], 'true');
+    }
+
+    setVictoryState({
+      isOpen: true,
+      level,
+      realPassword,
+      message,
+    });
+  };
+
   // Éxito al validar contraseña
   const handlePasswordSolved = (realPassword: string, message: string) => {
     // Al completar el ensamblado, cortamos la pista de tensión y dejamos la música
@@ -118,25 +163,28 @@ export function App() {
     // normal de contraseña es un no-op (no estamos en modo ensamblaje).
     void audioService.setAssemblyMode(false);
 
-    setSolvedLevels((prev) => ({
-      ...prev,
-      [currentLevel]: true,
-    }));
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('wifi_quest_solved', 'true');
-      localStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'true');
-      sessionStorage.setItem('wifi_quest_solved', 'true');
-      sessionStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'true');
+    // Victoria por ensamblaje (Nivel 1): sostenemos el panel para mostrar la
+    // animación de acierto (piezas verdes + mensaje) antes del modal.
+    if (currentLevel === 1 && isRawAssemblyPhase) {
+      pendingVictoryRef.current = { realPassword, message };
+      setAssemblyVictoryHold(true);
+      return;
     }
 
-    setVictoryState({
-      isOpen: true,
-      level: currentLevel,
-      realPassword,
-      message,
-    });
+    commitVictory(currentLevel, realPassword, message);
   };
+
+  // Al agotarse el hold, recién ahí abrimos el modal de victoria.
+  useEffect(() => {
+    if (!assemblyVictoryHold) return undefined;
+    const timer = window.setTimeout(() => {
+      setAssemblyVictoryHold(false);
+      const pending = pendingVictoryRef.current;
+      pendingVictoryRef.current = null;
+      if (pending) commitVictory(1, pending.realPassword, pending.message);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [assemblyVictoryHold]);
 
   // Mantener el puente apuntando al handler más reciente (cierra sobre currentLevel).
   useEffect(() => {
@@ -270,7 +318,11 @@ export function App() {
               {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
               {currentLevel === 1 && (
                 <KeyringDock
-                  gameState={gameState}
+                  gameState={
+                    isAssemblyTransitioning && gameState
+                      ? { ...gameState, phase: 'hunting' }
+                      : gameState
+                  }
                   justDroppedFragment={justDroppedFragment}
                   unlockNotification={latestUnlockNotification}
                   onDismissNotification={clearUnlockNotification}
@@ -292,6 +344,7 @@ export function App() {
                 isLoading={isLoading}
                 currentLevel={currentLevel}
                 isSolved={isSolved}
+                isLocked={isAssemblyTransitioning}
                 insertedText={fragmentToInsert}
               />
             </>

@@ -15,18 +15,16 @@ import {
   type AssemblyLayout,
 } from '@/lib/assembly';
 import { useAssemblyTimer } from '@/hooks/useAssemblyTimer';
-import { ASSEMBLY_EXPIRED_KEY, writeFlag } from '@/lib/assemblyTimer';
+import { ASSEMBLY_EXPIRED_KEY, ASSEMBLY_DURATION_MS, writeFlag } from '@/lib/assemblyTimer';
 import { resolveAssemblyBubbleMessage } from '@/lib/assemblyMessages';
 import {
   Bot,
-  Check,
   CheckCircle2,
   GripVertical,
   Loader2,
   Puzzle,
   RotateCcw,
   Sparkles,
-  Timer,
   X,
 } from 'lucide-react';
 
@@ -39,26 +37,30 @@ interface FinalAssemblyPanelProps {
 
 type DragPayload = { from: 'tray' | 'slot'; id: string; slotIndex?: number };
 
-const TIMER_STYLES: Record<string, { box: string; text: string; icon: string }> = {
+const TIMER_STYLES: Record<string, { box: string; text: string; icon: string; fill: string }> = {
   normal: {
     box: 'border-amber-500/40 bg-amber-950/30',
     text: 'text-amber-200',
     icon: 'text-amber-400',
+    fill: 'bg-amber-400',
   },
   warning: {
     box: 'border-orange-500/60 bg-orange-950/40 shadow-[0_0_14px_rgba(249,115,22,0.3)]',
     text: 'text-orange-200',
     icon: 'text-orange-400',
+    fill: 'bg-orange-400',
   },
   critical: {
     box: 'border-red-500/70 bg-red-950/50 shadow-[0_0_16px_rgba(239,68,68,0.45)] animate-pulse',
     text: 'text-red-200',
     icon: 'text-red-400',
+    fill: 'bg-red-500',
   },
   expired: {
     box: 'border-rose-500/50 bg-rose-950/40',
     text: 'text-rose-300',
     icon: 'text-rose-400',
+    fill: 'bg-rose-500',
   },
 };
 
@@ -84,6 +86,24 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const [swapAnim, setSwapAnim] = useState<{ a: number; b: number } | null>(null);
   const [feedback, setFeedback] = useState<AssemblyFeedbackDTO | null>(null);
   const [llmReply, setLlmReply] = useState<string | null>(null);
+  // Victoria confirmada: bloquea reenvíos mientras se muestra la animación de acierto.
+  const [victoryPending, setVictoryPending] = useState(false);
+
+  // En pantallas táctiles el drag & drop nativo (HTML5) no funciona: priorizamos
+  // el patrón "toca la pieza y luego la casilla" y ocultamos la pista de arrastre.
+  const [isTouch, setIsTouch] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches);
+    mq.addEventListener?.('change', handler);
+    return () => mq.removeEventListener?.('change', handler);
+  }, []);
 
   const swapTimerRef = useRef<number | null>(null);
 
@@ -146,10 +166,12 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     }
   }, [remainingMs, expired]);
 
-  // Sonido único al expirar (la música sigue: expirar no bloquea nada).
+  // Sonido único al expirar (la música sigue: expirar no bloquea nada). Al expirar,
+  // la burbuja reemplaza el último mensaje por el aviso de que el reloj era puro teatro.
   useEffect(() => {
     if (expired && !prevExpiredRef.current) {
       audioService.playAssemblyExpiredSound();
+      setLlmReply(null);
     }
     prevExpiredRef.current = expired;
   }, [expired]);
@@ -165,6 +187,10 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const full = isLayoutFull(layout) && placedValidCount === layout.slots.length;
   const hasPlaced = placedValidCount > 0;
   const allPlacedCount = placedValidCount;
+
+  // Pieza en curso (arrastrando o seleccionada con tap): guía visual al colocar.
+  const isDragging = dragPayload !== null;
+  const carried = dragPayload ?? selected;
 
   const commit = (next: AssemblyLayout) => {
     if (next === layout) return; // no-op: no suena ni re-renderiza
@@ -243,7 +269,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   };
 
   const handleValidate = async () => {
-    if (!full || isSubmitting) return;
+    if (!full || isSubmitting || victoryPending) return;
 
     const pieces = layout.slots.map((id) => (id ? valueById[id] ?? '' : ''));
     const candidate = buildCandidate(layout, valueById);
@@ -254,20 +280,25 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     setLlmReply(result.reply);
     setFeedback(result.feedback ?? null);
 
-    if (result.victory) {
-      onSolved?.(candidate, result.reply);
-      return;
-    }
-
-    // Refuerzo sonoro del acierto parcial o del fallo total.
+    // Refuerzo sonoro: acierto (total o parcial) o fallo.
     if (result.feedback && result.feedback.wellPlaced > 0) {
       audioService.playSlotCorrectSound();
-    } else {
+    } else if (!result.victory) {
       audioService.playAssemblyWrongSound();
+    }
+
+    // Victoria: el panel permanece montado (App sostiene ~1.5 s la animación de
+    // acierto) y recién después se abre el modal de victoria.
+    if (result.victory) {
+      setVictoryPending(true);
+      onSolved?.(candidate, result.reply);
+      return;
     }
   };
 
   const timerStyle = TIMER_STYLES[band] ?? TIMER_STYLES.normal;
+  // Relleno de la barra analógica: 100% al inicio, 0% al agotarse el (falso) minuto.
+  const timerPct = Math.max(0, Math.min(100, (remainingMs / ASSEMBLY_DURATION_MS) * 100));
   // Se anuncia por bandas (no cada segundo) para no saturar al lector de pantalla.
   const announcement = expired
     ? 'Se agotó el minuto en broma; puedes seguir intentando.'
@@ -279,14 +310,33 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Burbuja superior: contador (broma) + último mensaje del LLM */}
-      <div className="flex items-stretch gap-2 border-b border-amber-500/30 bg-gradient-to-b from-amber-950/40 via-card/70 to-background/90 px-3 py-2.5 sm:px-4">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5 rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 py-2 shadow-[0_0_16px_rgba(245,158,11,0.15)]">
+      {/* Cabecera: contador analógico (franja fina) + burbuja del agente */}
+      <div className="border-b border-amber-500/30 bg-gradient-to-b from-amber-950/40 via-card/70 to-background/90 px-3 py-2 sm:px-4">
+        {/* Contador analógico: barra de progreso full-width, poco alto */}
+        <div
+          className={`mb-1.5 flex items-center gap-2 ${timerStyle.text}`}
+          title="Contador: al llegar a cero no pasa nada, podés seguir jugando"
+        >
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
+            <div
+              className={`h-full rounded-full transition-[width] duration-500 ease-linear ${timerStyle.fill}`}
+              style={{ width: `${timerPct}%` }}
+            />
+          </div>
+          <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums">
+            {clock}
+          </span>
+          <span className="sr-only" aria-live="polite">
+            {announcement}
+          </span>
+        </div>
+
+        <div className="flex min-w-0 items-start gap-2.5 rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 py-2 shadow-[0_0_16px_rgba(245,158,11,0.15)]">
           <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-amber-500/50 bg-blue-950/80 text-amber-400">
             <Bot className="size-3.5" />
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-amber-300">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] font-bold text-amber-300">
               <span>Lucas (Pasante TI)</span>
               <span className="text-amber-500/60">•</span>
               <span className="font-normal text-muted-foreground">ensamblaje</span>
@@ -296,30 +346,11 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
             </p>
           </div>
         </div>
-
-        {/* Contador de 1 minuto (broma): al llegar a cero no bloquea nada */}
-        <div
-          className={`flex shrink-0 flex-col items-center justify-center rounded-xl border px-2.5 py-1 font-mono transition-colors ${timerStyle.box}`}
-          title="Contador de broma: al llegar a cero no pasa nada, podés seguir jugando"
-        >
-          <div className="flex items-center gap-1">
-            <Timer className={`size-3.5 ${timerStyle.icon}`} />
-            <span className={`text-base font-bold tabular-nums ${timerStyle.text}`}>
-              {clock}
-            </span>
-          </div>
-          <span className={`text-[8px] font-bold uppercase tracking-wide ${timerStyle.text}`}>
-            {expired ? 'era broma' : 'en broma'}
-          </span>
-          <span className="sr-only" aria-live="polite">
-            {announcement}
-          </span>
-        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4">
         <div className="mx-auto w-full max-w-3xl space-y-4">
-          {/* Bandeja de piezas desbloqueadas */}
+          {/* Bandeja de piezas desbloqueadas (se colapsa a una línea cuando está vacía) */}
           <section>
             <div className="mb-1.5 flex items-center justify-between">
               <h3 className="flex items-center gap-1.5 font-heading text-xs font-bold uppercase tracking-wide text-foreground">
@@ -330,42 +361,48 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                 {trayIds.length} en bandeja
               </span>
             </div>
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDropOnTray}
-              className="flex min-h-[64px] flex-wrap items-center gap-2 rounded-xl border border-dashed border-border/70 bg-secondary/15 p-2.5 transition-colors"
-            >
-              {trayIds.length === 0 ? (
-                <span className="px-1 font-mono text-[11px] text-muted-foreground">
-                  Todas las piezas están en su casilla. Valida tu combinación o retira alguna.
-                </span>
-              ) : (
-                trayIds.map((id) => {
+            {trayIds.length === 0 ? (
+              <p className="px-1 font-mono text-[11px] text-muted-foreground">
+                Todas las piezas están en su casilla. Valida o retira alguna.
+              </p>
+            ) : (
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDropOnTray}
+                className="flex min-h-[56px] flex-wrap items-center gap-2 rounded-xl border border-dashed border-border/70 bg-secondary/15 p-2.5 transition-colors"
+              >
+                {trayIds.map((id) => {
                   const frag = valueById[id];
                   const isSelected = selected?.from === 'tray' && selected.id === id;
                   return (
                     <button
                       key={id}
                       type="button"
-                      draggable
-                      onDragStart={handleDragStart({ from: 'tray', id })}
+                      draggable={!isTouch}
+                      onDragStart={isTouch ? undefined : handleDragStart({ from: 'tray', id })}
                       onDragEnd={() => setDragPayload(null)}
                       onClick={() => handleTrayClick(id)}
                       aria-pressed={isSelected}
-                      title={`Pieza " ${frag} ". Arrastra a una casilla o toca para seleccionar`}
-                      className={`flex cursor-grab items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-sm font-bold tracking-wide transition-all active:cursor-grabbing ${
+                      title={`Pieza " ${frag} ". ${isTouch ? 'Toca para seleccionar' : 'Arrastra a una casilla o toca para seleccionar'}`}
+                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-sm font-bold tracking-wide transition-all ${
+                        isTouch ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                      } ${
+                        dragPayload?.from === 'tray' && dragPayload.id === id
+                          ? 'opacity-40 border-dashed'
+                          : ''
+                      } ${
                         isSelected
                           ? 'border-amber-400 bg-amber-500/25 text-white ring-2 ring-amber-400/70 scale-105'
                           : 'border-amber-500/50 bg-gradient-to-b from-amber-950/70 via-card to-slate-950/80 text-amber-200 hover:border-amber-400 hover:scale-105'
                       }`}
                     >
-                      <GripVertical className="size-3 opacity-50" />
+                      {!isTouch && <GripVertical className="size-3 opacity-50" />}
                       <span className="max-w-[120px] truncate">{frag}</span>
                     </button>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
           </section>
 
           {/* Casillas del ensamblaje */}
@@ -392,7 +429,19 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {/* Guía visual de la pieza en curso (arrastrando o seleccionada) */}
+            {carried && (valueById[carried.id] ?? '') !== '' && (
+              <div className="mb-1.5 flex items-center gap-2 rounded-md border border-amber-400/60 bg-amber-500/10 px-2 py-1 font-mono text-[11px] text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                <span className="text-muted-foreground">
+                  {isDragging ? 'Arrastrando:' : 'Seleccionada:'}
+                </span>
+                <span className="font-bold">[ {valueById[carried.id]} ]</span>
+                <span className="text-muted-foreground">→ toca o suelta en una casilla</span>
+              </div>
+            )}
+
+            {/* Lista vertical numerada: el orden 1..N se lee de arriba hacia abajo */}
+            <div className="flex flex-col gap-1.5">
               {layout.slots.map((id, index) => {
                 const frag = id && knownId(id) ? valueById[id] : null;
                 const isCorrect = Boolean(feedback && frag && feedback.slotCorrect[index]);
@@ -412,9 +461,9 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                     role="button"
                     tabIndex={0}
                     aria-label={`Casilla ${index + 1}${frag ? `: ${frag}` : ' vacía'}`}
-                    draggable={Boolean(frag)}
+                    draggable={Boolean(frag) && !isTouch}
                     onDragStart={
-                      frag && id
+                      frag && id && !isTouch
                         ? handleDragStart({ from: 'slot', id, slotIndex: index })
                         : undefined
                     }
@@ -427,67 +476,72 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                     }}
                     onDragLeave={() => setDragOverSlot((prev) => (prev === index ? null : prev))}
                     onDrop={handleDropOnSlot(index)}
-                    className={`relative flex min-h-[58px] flex-col items-center justify-center rounded-lg border-2 px-2 py-1.5 font-mono text-center transition-all ${
+                    className={`flex min-h-9 items-center gap-2 rounded-lg border px-2 py-1 font-mono transition-all ${
                       isCorrect
-                        ? 'border-emerald-400 bg-emerald-950/40 shadow-[0_0_14px_rgba(16,185,129,0.3)]'
+                        ? 'border-emerald-400 bg-emerald-950/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
                         : isWrong
                           ? 'border-rose-500/70 bg-rose-950/30'
                           : isDropTarget
-                            ? 'border-amber-400 bg-amber-500/15'
+                            ? 'border-2 border-amber-400 bg-amber-500/25 ring-2 ring-amber-400/60 shadow-[0_0_18px_rgba(245,158,11,0.5)] scale-[1.01]'
                             : frag
-                              ? 'border-amber-500/50 bg-gradient-to-b from-amber-950/50 via-card to-slate-950/70'
+                              ? 'border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-card to-slate-950/70'
                               : 'border-dashed border-border/60 bg-secondary/10'
                     } ${frag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${
                       isSelected ? 'ring-2 ring-amber-400/70' : ''
+                    } ${
+                      dragPayload?.from === 'slot' && dragPayload.id === id ? 'opacity-40' : ''
                     } ${swapClass}`}
                   >
-                    <span className="absolute left-1.5 top-1 font-mono text-[9px] text-muted-foreground/70">
-                      #{index + 1}
+                    {/* Número de posición */}
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded border border-border/70 bg-secondary/40 text-[11px] font-bold text-muted-foreground">
+                      {index + 1}
                     </span>
 
-                    {frag ? (
-                      <>
-                        <span
-                          className={`max-w-full truncate text-sm font-bold tracking-wider ${
-                            isCorrect ? 'text-emerald-200' : isWrong ? 'text-rose-200' : 'text-amber-200'
-                          }`}
-                        >
-                          {frag}
-                        </span>
-                        <span className="flex items-center gap-1 pt-0.5 text-[9px] font-bold uppercase">
-                          {isCorrect ? (
-                            <span className="flex items-center gap-0.5 text-emerald-400">
-                              <CheckCircle2 className="size-3" />
-                              correcto
-                              <span className="sr-only">posición correcta</span>
-                            </span>
-                          ) : isWrong ? (
-                            <span className="flex items-center gap-0.5 text-rose-400">
-                              <X className="size-3" />
-                              revisar
-                              <span className="sr-only">posición incorrecta</span>
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/70">colocado</span>
-                          )}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemove(index);
-                          }}
-                          className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-rose-500/60 hover:text-rose-300"
-                          title="Retirar pieza a la bandeja"
-                        >
-                          <X className="size-3" />
-                          <span className="sr-only">Retirar pieza</span>
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50">
-                        {selected ? 'Soltar aquí' : 'Vacía'}
+                    {/* Valor */}
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm font-bold tracking-wider ${
+                        isCorrect
+                          ? 'text-emerald-200'
+                          : isWrong
+                            ? 'text-rose-200'
+                            : frag
+                              ? 'text-amber-200'
+                              : 'text-muted-foreground/50'
+                      }`}
+                    >
+                      {frag ?? (selected || isDragging || isDropTarget ? 'Soltar aquí' : 'Vacía')}
+                    </span>
+
+                    {/* Estado de validación (solo tras validar) */}
+                    {isCorrect && (
+                      <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase text-emerald-400">
+                        <CheckCircle2 className="size-3.5" />
+                        bien
+                        <span className="sr-only">posición correcta</span>
                       </span>
+                    )}
+                    {isWrong && (
+                      <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase text-rose-400">
+                        <X className="size-3.5" />
+                        revisar
+                        <span className="sr-only">posición incorrecta</span>
+                      </span>
+                    )}
+
+                    {/* Retirar pieza */}
+                    {frag && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemove(index);
+                        }}
+                        className="flex size-6 shrink-0 items-center justify-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-rose-500/60 hover:text-rose-300"
+                        title="Retirar pieza a la bandeja"
+                      >
+                        <X className="size-3.5" />
+                        <span className="sr-only">Retirar pieza</span>
+                      </button>
                     )}
                   </div>
                 );
@@ -495,25 +549,12 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
             </div>
           </section>
 
-          {/* Resumen de feedback + acción de validar */}
+          {/* Acción de validar (el agente comunica cuántas piezas están bien) */}
           <section className="space-y-2">
-            {feedback && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2 font-mono text-xs text-amber-200">
-                <Check className="size-4 shrink-0 text-amber-400" />
-                <span>
-                  Piezas en su lugar: <strong>{feedback.wellPlaced}</strong> de{' '}
-                  <strong>{feedback.total}</strong>.{' '}
-                  {feedback.wellPlaced === feedback.total
-                    ? '¡Perfecto!'
-                    : 'Movés las piezas y volvés a validar.'}
-                </span>
-              </div>
-            )}
-
             <Button
               type="button"
               onClick={handleValidate}
-              disabled={!full || isSubmitting}
+              disabled={!full || isSubmitting || victoryPending}
               className="h-10 w-full rounded-xl bg-amber-500 font-mono text-sm font-bold text-slate-950 shadow-[0_0_18px_rgba(245,158,11,0.35)] transition-all hover:bg-amber-400 active:scale-[0.99] disabled:opacity-50"
             >
               {isSubmitting ? (
