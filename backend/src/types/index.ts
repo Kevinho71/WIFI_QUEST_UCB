@@ -15,6 +15,12 @@ export interface ChatRequestBody {
    * contra el inventario y contra el texto del mensaje antes de usarlo.
    */
   assemblyPieces?: string[];
+  /**
+   * Semilla opcional por partida (Nivel 1). Aleatoriza el orden de descubrimiento y
+   * los ids de los fragmentos de forma estable durante toda la sesión. Solo afecta
+   * presentación/orden, nunca la clave ni la validación de victoria.
+   */
+  sessionSeed?: string;
 }
 
 export interface DiscoveredFragmentDTO {

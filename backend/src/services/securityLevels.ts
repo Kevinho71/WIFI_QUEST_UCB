@@ -951,9 +951,10 @@ export async function processLevel1(
   messages: ChatMessage[],
   userTurnNumber?: number,
   fullHistory?: ChatMessage[],
-  assemblyPieces?: string[]
+  assemblyPieces?: string[],
+  sessionSeed?: string
 ): Promise<SecurityLevelResult & { victory?: boolean; leakBlocked?: boolean }> {
-  return processLevel1V2(messages, userTurnNumber, fullHistory, assemblyPieces);
+  return processLevel1V2(messages, userTurnNumber, fullHistory, assemblyPieces, sessionSeed);
 }
 
 export async function processSecurityLevel(
@@ -961,7 +962,8 @@ export async function processSecurityLevel(
   messages: ChatMessage[],
   userTurnNumber?: number,
   fullHistory?: ChatMessage[],
-  assemblyPieces?: string[]
+  assemblyPieces?: string[],
+  sessionSeed?: string
 ): Promise<SecurityLevelResult> {
   if (level === 1) {
     // Fase 8 — v2 es el motor por defecto; el flag queda como kill-switch de rollback.
@@ -979,7 +981,7 @@ export async function processSecurityLevel(
       // evalúa guardas sobre el reply v1, sin duplicar costo.
       const result = await processLevel1V1Legacy(messages, userTurnNumber, fullHistory);
       try {
-        const report = buildShadowReport(messages, fullHistory, result.reply);
+        const report = buildShadowReport(messages, fullHistory, result.reply, sessionSeed);
         console.log(
           `[LEVEL1_ENGINE=shadow] evento=${report.event.type}\n` +
             `[shadow] prompt v2:\n${report.systemPrompt}\n` +
@@ -991,7 +993,7 @@ export async function processSecurityLevel(
       return result;
     }
 
-    return processLevel1V2(messages, userTurnNumber, fullHistory, assemblyPieces);
+    return processLevel1V2(messages, userTurnNumber, fullHistory, assemblyPieces, sessionSeed);
   }
   if (level === 2) {
     return processLevel2(messages);

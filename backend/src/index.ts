@@ -127,7 +127,7 @@ app.post('/api/chat', async (c) => {
       );
     }
 
-    const { level, messages, userTurnNumber, assemblyPieces } = body;
+    const { level, messages, userTurnNumber, assemblyPieces, sessionSeed } = body;
 
     if (level !== 1 && level !== 2) {
       return c.json(
@@ -168,12 +168,20 @@ app.post('/api/chat', async (c) => {
         ? (assemblyPieces as string[])
         : undefined;
 
+    // Semilla por partida (Nivel 1): opaca, acotada y sin caracteres raros. Si no es
+    // válida se ignora y el motor usa su orden histórico.
+    const normalizedSessionSeed =
+      typeof sessionSeed === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(sessionSeed.trim())
+        ? sessionSeed.trim()
+        : undefined;
+
     const result = await processSecurityLevel(
       level,
       messagesForEngine,
       computedTurnNumber,
       fullSanitizedMessages,
-      normalizedAssemblyPieces
+      normalizedAssemblyPieces,
+      normalizedSessionSeed
     );
 
     return c.json(result, 200);

@@ -335,5 +335,52 @@ describe('API Endpoints (Hono)', () => {
       spyAI.mockRestore();
     });
   });
+
+  describe('POST /api/chat — sessionSeed (Nivel 1)', () => {
+    const history = [
+      { role: 'user', content: 'hola Lucas' },
+      { role: 'assistant', content: 'contame algo' },
+      { role: 'user', content: 'hola de nuevo' },
+    ];
+
+    it('con la misma sessionSeed devuelve el mismo gameState (replay estable)', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValue({ reply: 'seguimos', providerUsed: 'mock' });
+
+      // IP propia: el rate limiter es por IP y esta suite ya consumió el cupo global.
+      const post = () =>
+        app.request('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '203.0.113.7' },
+          body: JSON.stringify({ level: 1, messages: history, sessionSeed: 'partida-1' }),
+        });
+
+      const a = await (await post()).json();
+      const b = await (await post()).json();
+      expect(a.gameState.currentChallengeHint).toBe(b.gameState.currentChallengeHint);
+      expect(a.gameState.phase).toBe(b.gameState.phase);
+
+      spyAI.mockRestore();
+    });
+
+    it('acepta una sessionSeed inválida sin romper (cae al orden histórico)', async () => {
+      const spyAI = vi
+        .spyOn(aiProviderModule, 'generateAIResponse')
+        .mockResolvedValue({ reply: 'seguimos', providerUsed: 'mock' });
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '203.0.113.8' },
+        body: JSON.stringify({ level: 1, messages: history, sessionSeed: '### no válida ###' }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.gameState).toBeDefined();
+
+      spyAI.mockRestore();
+    });
+  });
 });
 

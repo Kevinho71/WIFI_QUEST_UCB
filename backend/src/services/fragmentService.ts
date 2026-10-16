@@ -122,6 +122,32 @@ export function createShuffledChallengeQueue(
 }
 
 /**
+ * 1.2.1 Reasigna ids a los fragmentos con una permutación derivada de `seed`.
+ * Mantiene el orden de `fragments` (original, para el ensamblaje) pero cambia los
+ * ids para que NO revelen la posición original. Estable para una misma seed, de modo
+ * que el replay reconstructa idénticos ids durante toda la partida.
+ */
+export function randomizeFragmentIds(
+  fragments: PasswordFragment[],
+  seed: number | string
+): PasswordFragment[] {
+  const n = fragments.length;
+  if (n <= 1) return fragments.map((f) => ({ ...f }));
+
+  const rng = createPrng(seed);
+  const perm = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [perm[i], perm[j]] = [perm[j], perm[i]];
+  }
+
+  return fragments.map((f) => ({
+    ...f,
+    id: `frag_${perm[f.originalIndex] + 1}`,
+  }));
+}
+
+/**
  * Valida los límites de coincidencia para evitar falsos positivos
  * (ej: no coincidir '505' dentro de '1505', ni 'pan' dentro de 'empanada').
  */

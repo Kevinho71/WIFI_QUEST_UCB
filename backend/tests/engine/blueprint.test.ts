@@ -123,4 +123,48 @@ describe('Fase 2: engine/blueprint', () => {
       expect(Object.isFrozen(info.aliases)).toBe(true);
     });
   });
+
+  describe('semilla por partida (sessionSeed)', () => {
+    const KEY = '#Quasar8128&Fenix%777!';
+    const ALL_IDS = ['frag_1', 'frag_2', 'frag_3', 'frag_4', 'frag_5', 'frag_6', 'frag_7', 'frag_8'];
+
+    it('sin seed conserva los ids históricos frag_1.. en orden original', () => {
+      const bp = buildBlueprint(KEY);
+      expect(bp.fragments.map((f) => f.id)).toEqual(ALL_IDS);
+    });
+
+    it('con seed: reensamblado válido, ids únicos y misma cardinalidad', () => {
+      const bp = buildBlueprint(KEY, 'partida-A');
+      expect(bp.fragments.map((f) => f.value).join('')).toBe(KEY);
+      // El orden de VALORES (ensamblaje) NO cambia con la seed.
+      expect(bp.fragments.map((f) => f.value)).toEqual([
+        '#', 'Quasar', '8128', '&', 'Fenix', '%', '777', '!',
+      ]);
+      const ids = bp.fragments.map((f) => f.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect([...ids].sort()).toEqual(ALL_IDS);
+      expect(bp.queue.map((f) => f.id).sort()).toEqual(ALL_IDS);
+    });
+
+    it('es determinista para la misma seed (el replay reconstruye igual)', () => {
+      const a = buildBlueprint(KEY, 'partida-A');
+      const b = buildBlueprint(KEY, 'partida-A');
+      expect(a.queue.map((f) => f.id)).toEqual(b.queue.map((f) => f.id));
+      expect(a.fragments.map((f) => f.id)).toEqual(b.fragments.map((f) => f.id));
+    });
+
+    it('otra seed cambia el orden de la cola y la asignación de ids', () => {
+      const a = buildBlueprint(KEY, 'partida-A');
+      const b = buildBlueprint(KEY, 'partida-B');
+      expect(a.queue.map((f) => f.value)).not.toEqual(b.queue.map((f) => f.value));
+      const mapA = a.fragments.map((f) => `${f.id}:${f.value}`).join('|');
+      const mapB = b.fragments.map((f) => `${f.id}:${f.value}`).join('|');
+      expect(mapA).not.toBe(mapB);
+    });
+
+    it('con seed, los ids no siguen el orden original', () => {
+      const bp = buildBlueprint(KEY, 'partida-A');
+      expect(bp.fragments.map((f) => f.id)).not.toEqual(ALL_IDS);
+    });
+  });
 });

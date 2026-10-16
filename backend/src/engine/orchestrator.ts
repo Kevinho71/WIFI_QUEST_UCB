@@ -65,9 +65,10 @@ export interface ShadowReport {
 export function buildShadowReport(
   messages: ChatMessage[],
   fullHistory: ChatMessage[] | undefined,
-  v1Reply: string
+  v1Reply: string,
+  sessionSeed?: string
 ): ShadowReport {
-  const blueprint = getBlueprint();
+  const blueprint = getBlueprint(sessionSeed);
   const history = fullHistory && fullHistory.length ? fullHistory : messages;
   const state0 = replayState(history, blueprint);
   const { event, stateAfter } = deriveEvent(state0, blueprint);
@@ -176,9 +177,10 @@ export async function processLevel1V2(
   messages: ChatMessage[],
   _userTurnNumber?: number, // IGNORADO: el turno se deriva del historial
   fullHistory?: ChatMessage[],
-  assemblyPieces?: string[]
+  assemblyPieces?: string[],
+  sessionSeed?: string
 ): Promise<SecurityLevelResult & { victory?: boolean; leakBlocked?: boolean }> {
-  const blueprint = getBlueprint();
+  const blueprint = getBlueprint(sessionSeed);
   const history = fullHistory && fullHistory.length ? fullHistory : messages;
 
   const state0 = replayState(history, blueprint);

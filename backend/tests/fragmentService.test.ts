@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   tokenizePassword,
   createShuffledChallengeQueue,
+  randomizeFragmentIds,
   evaluateUserMessageFragments,
   isInstantWin,
   evaluateTurnProgression,
@@ -292,6 +293,45 @@ describe('Fase 1: Motor de Tokenización, Barajado y Detección (fragmentService
       expect(res.evaluation.matchedFragments).toHaveLength(1);
       expect(res.evaluation.matchedFragments[0].value).toBe('kevin');
       expect(res.evaluation.unmatchedFragments).toHaveLength(fragments.length - 1);
+    });
+  });
+
+  describe('1.2.1 randomizeFragmentIds (ids aleatorios por partida)', () => {
+    const frags: PasswordFragment[] = [
+      { id: 'frag_1', value: 'a', type: 'word', originalIndex: 0 },
+      { id: 'frag_2', value: 'b', type: 'word', originalIndex: 1 },
+      { id: 'frag_3', value: 'c', type: 'word', originalIndex: 2 },
+      { id: 'frag_4', value: 'd', type: 'word', originalIndex: 3 },
+    ];
+
+    it('conserva orden y valores, y reasigna ids únicos (permutación)', () => {
+      const out = randomizeFragmentIds(frags, 'seed-x');
+      expect(out.map((f) => f.value)).toEqual(['a', 'b', 'c', 'd']);
+      const ids = out.map((f) => f.id);
+      expect(new Set(ids).size).toBe(frags.length);
+      expect([...ids].sort()).toEqual(['frag_1', 'frag_2', 'frag_3', 'frag_4']);
+    });
+
+    it('es determinista para la misma seed', () => {
+      expect(randomizeFragmentIds(frags, 'seed-x').map((f) => f.id)).toEqual(
+        randomizeFragmentIds(frags, 'seed-x').map((f) => f.id)
+      );
+    });
+
+    it('no muta la entrada', () => {
+      const snapshot = JSON.stringify(frags);
+      randomizeFragmentIds(frags, 'seed-x');
+      expect(JSON.stringify(frags)).toBe(snapshot);
+    });
+
+    it('no rompe con 0 o 1 fragmento', () => {
+      expect(randomizeFragmentIds([], 's')).toEqual([]);
+      const one: PasswordFragment[] = [
+        { id: 'frag_1', value: 'a', type: 'word', originalIndex: 0 },
+      ];
+      const out = randomizeFragmentIds(one, 's');
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe('frag_1');
     });
   });
 });

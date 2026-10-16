@@ -1,4 +1,8 @@
-import { tokenizePassword, createShuffledChallengeQueue } from '../services/fragmentService.js';
+import {
+  tokenizePassword,
+  createShuffledChallengeQueue,
+  randomizeFragmentIds,
+} from '../services/fragmentService.js';
 import type { PasswordFragment } from '../types/index.js';
 import { getWifiPassword } from '../utils/env.js';
 
@@ -6,9 +10,10 @@ import { getWifiPassword } from '../utils/env.js';
  * Fase 2 — Blueprint inmutable del Nivel 1 v2.
  *
  * Reúne el plano completo de la clave: fragmentos en orden original (para el
- * ensamblaje), cola de retos barajada (seed = clave, igual semilla que v1) y el
- * catálogo de pistas/aliases/nombres por fragmento. Solo `getBlueprint()` lee el
- * `.env`; `buildBlueprint(clave)` es puro y testeable sin entorno.
+ * ensamblaje), cola de retos barajada (seed = clave; o clave+`sessionSeed` si se
+ * pasa, para aleatorizar cada partida) y el catálogo de pistas/aliases/nombres por
+ * fragmento. Solo `getBlueprint()` lee el `.env`; `buildBlueprint(clave, seed)` es
+ * puro y testeable sin entorno.
  */
 
 export interface FragmentInfo {
@@ -238,9 +243,15 @@ function deepFreezeBlueprint(bp: Blueprint): Blueprint {
   return Object.freeze(bp);
 }
 
-export function buildBlueprint(wifiPass: string): Blueprint {
-  const fragments = tokenizePassword(wifiPass);
-  const queue = createShuffledChallengeQueue(fragments, wifiPass);
+export function buildBlueprint(wifiPass: string, sessionSeed?: string): Blueprint {
+  const baseFragments = tokenizePassword(wifiPass);
+  // Sin seed: comportamiento histórico (ids frag_1.. y cola sembrada con la clave).
+  // Con seed: ids aleatorios + orden de retos distinto, estable durante la partida.
+  const hasSeed = Boolean(sessionSeed && sessionSeed.length > 0);
+  const seed = hasSeed ? `${wifiPass}|${sessionSeed}` : wifiPass;
+
+  const fragments = hasSeed ? randomizeFragmentIds(baseFragments, seed) : baseFragments;
+  const queue = createShuffledChallengeQueue(fragments, seed);
 
   const info = new Map<string, FragmentInfo>();
   for (const frag of fragments) {
@@ -259,16 +270,32 @@ export function buildBlueprint(wifiPass: string): Blueprint {
   return deepFreezeBlueprint(blueprint);
 }
 
-let cachedBlueprint: Blueprint | null = null;
+const blueprintCache = new Map<string, Blueprint>();
+/** Tope de blueprints cacheados (uno por partida); evita crecimiento sin límite. */
+const MAX_CACHED_BLUEPRINTS = 64;
 
-/** Singleton memoizado construido con la clave del `.env`. */
-export function getBlueprint(): Blueprint {
-  if (!cachedBlueprint) {
-    cachedBlueprint = buildBlueprint(getWifiPassword());
+/**
+ * Blueprint memoizado. Sin `sessionSeed` devuelve el plano histórico (ids frag_1.. y
+ * cola sembrada con la clave). Con `sessionSeed`, un plano por partida (ids y orden
+ * aleatorios, estables para esa seed). La semilla solo afecta ids/orden, nunca la
+ * clave ni la validación de victoria.
+ */
+export function getBlueprint(sessionSeed?: string): Blueprint {
+  const wifiPass = getWifiPassword();
+  const cacheKey = `${wifiPass}\n${sessionSeed ?? ''}`;
+
+  const cached = blueprintCache.get(cacheKey);
+  if (cached) return cached;
+
+  const blueprint = buildBlueprint(wifiPass, sessionSeed);
+  if (blueprintCache.size >= MAX_CACHED_BLUEPRINTS) {
+    const oldestKey = blueprintCache.keys().next().value;
+    if (oldestKey !== undefined) blueprintCache.delete(oldestKey);
   }
-  return cachedBlueprint;
+  blueprintCache.set(cacheKey, blueprint);
+  return blueprint;
 }
 
 export function __resetBlueprintCacheForTests(): void {
-  cachedBlueprint = null;
+  blueprintCache.clear();
 }
