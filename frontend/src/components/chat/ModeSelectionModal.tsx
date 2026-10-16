@@ -116,6 +116,25 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                 </div>
               </div>
 
+              {/* Reglas del juego — Fácil */}
+              <div className="rounded-lg border border-amber-500/20 bg-background/70 p-3 space-y-1.5 text-xs font-mono">
+                <p className="font-bold text-amber-300">📜 Reglas del juego</p>
+                <p className="flex items-start gap-2 text-foreground/90">
+                  <span className="shrink-0">1.</span>
+                  <span>
+                    Descubrí los <strong className="text-amber-300">fragmentos</strong> de la clave
+                    WiFi (palabras, números y símbolos) resolviendo los acertijos de Lucas.
+                  </span>
+                </p>
+                <p className="flex items-start gap-2 text-foreground/90">
+                  <span className="shrink-0">2.</span>
+                  <span>
+                    Cuando los tengas todos, <strong className="text-amber-300">ordenalos</strong> en
+                    el ensamblaje para armar la clave y desbloquear el WiFi.
+                  </span>
+                </p>
+              </div>
+
               <div className="rounded-md bg-secondary/50 border border-border/60 px-3 py-2 text-[11px] font-mono text-muted-foreground">
                 🎯 <strong className="text-foreground">Objetivo:</strong> Interactúa con ingenio, resuelve sus adivinanzas y sácale pistas hasta deducir la contraseña.
               </div>
@@ -189,6 +208,27 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                     <strong className="text-amber-400">Filtro de Salida:</strong> Si la IA escribe la clave en texto plano, el firewall la intercepta y censura en tiempo real.
                   </span>
                 </div>
+              </div>
+
+              {/* Reglas del juego — Difícil */}
+              <div className="rounded-lg border border-sky-500/20 bg-background/70 p-3 space-y-1.5 text-xs font-mono">
+                <p className="font-bold text-sky-300">📜 Reglas del juego</p>
+                <p className="flex items-start gap-2 text-foreground/90">
+                  <span className="shrink-0">1.</span>
+                  <span>
+                    Modo <strong className="text-sky-300">técnico / avanzado</strong>: entrenás{' '}
+                    <strong className="text-sky-300">prompt injection</strong> contra un Firewall
+                    Centinela con filtros de entrada y salida.
+                  </span>
+                </p>
+                <p className="flex items-start gap-2 text-foreground/90">
+                  <span className="shrink-0">2.</span>
+                  <span>
+                    Sin pistas: forzá a la IA a <strong className="text-sky-300">cifrar u ocultar la
+                    clave</strong> (acrósticos, deletreo, Base64, claves ocultas) para que el filtro
+                    no la intercepte.
+                  </span>
+                </p>
               </div>
 
               <div className="rounded-md bg-secondary/50 border border-border/60 px-3 py-2 text-[11px] font-mono text-muted-foreground">

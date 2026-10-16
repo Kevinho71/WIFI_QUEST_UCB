@@ -76,6 +76,11 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
                     Ninguna pista te será dada de forma gratuita: tendrás que aplicar técnicas reales
                     de <em>Prompt Injection</em> y obligar al modelo a cifrar u ocultar su respuesta.
                   </p>
+                  <p className="rounded-md border border-sky-500/30 bg-sky-500/[0.06] px-2.5 py-2">
+                    <strong className="text-sky-300">📜 Reglas:</strong> descubrí la clave WiFi
+                    forzando a la IA a <strong>cifrarla u ocultarla</strong> (acrósticos, deletreo,
+                    Base64, claves ocultas) esquivando los filtros de entrada y salida.
+                  </p>
                   <p className="font-semibold text-foreground">
                     ¿Tienes la astucia técnica para lograrlo o prefieres quedarte con el pasante?
                   </p>
@@ -106,6 +111,11 @@ export const ModeSwitchModal: React.FC<ModeSwitchModalProps> = ({
                   <p>
                     Nadie te juzgará por volver a la zona de confort: Lucas te está esperando con sus
                     acertijos accesibles y pistas amigables.
+                  </p>
+                  <p className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2">
+                    <strong className="text-amber-300">📜 Reglas:</strong> descubrí los fragmentos de
+                    la clave (palabras, números y símbolos) resolviendo los acertijos de Lucas y luego{' '}
+                    <strong>ordenalos</strong> en el ensamblaje para armar la clave.
                   </p>
                   <p className="font-semibold text-foreground">
                     ¿Seguro que quieres bajar la dificultad o vas a darle un intento más antes de claudicar?
