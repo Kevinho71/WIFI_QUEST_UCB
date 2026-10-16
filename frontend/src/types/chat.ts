@@ -26,6 +26,7 @@ export interface ChatRequest {
   messages: ChatHistoryPayload[];
   userTurnNumber?: number;
   assemblyPieces?: string[]; // Orden actual de las piezas en la fase de ensamblaje
+  sessionSeed?: string; // Semilla por partida (Nivel 1): aleatoriza orden e ids
 }
 
 export interface DiscoveredFragmentDTO {

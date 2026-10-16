@@ -40,6 +40,37 @@ function getSavedLevel(defaultLevel: SecurityLevel = 1): SecurityLevel {
   return defaultLevel;
 }
 
+/**
+ * Semilla por PARTIDA (Nivel 1): se genera una vez al iniciar y se persiste para
+ * reenviarla idéntica en cada turno (el replay del backend debe reconstruir el mismo
+ * orden e ids). Solo se regenera al reiniciar la conversación o cambiar de modo.
+ */
+const SESSION_SEED_KEY = 'wifi_quest_session_seed_lvl_1';
+
+function createSessionSeed(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `seed_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function loadSessionSeed(): string {
+  if (typeof window === 'undefined') return createSessionSeed();
+  try {
+    const existing = localStorage.getItem(SESSION_SEED_KEY);
+    if (existing) return existing;
+  } catch (err) {
+    console.warn('[useChatSession] Error reading session seed:', err);
+  }
+  const seed = createSessionSeed();
+  try {
+    localStorage.setItem(SESSION_SEED_KEY, seed);
+  } catch (err) {
+    console.warn('[useChatSession] Error saving session seed:', err);
+  }
+  return seed;
+}
+
 function loadMessagesFromStorage(level: SecurityLevel): ChatMessage[] {
   if (typeof window === 'undefined') return [getInitialGreeting(level)];
 
@@ -133,6 +164,9 @@ export function useChatSession(
   const [isLoading, setIsLoading] = useState(false);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+
+  // Semilla por partida (Nivel 1): aleatoriza el orden de descubrimiento y los ids.
+  const [sessionSeed, setSessionSeed] = useState<string>(() => loadSessionSeed());
 
   // Estado del juego de desbloqueo secuencial (Lucas - Nivel 1)
   const [gameState, setGameState] = useState<GameStateDTO | null>(() =>
@@ -283,6 +317,7 @@ export function useChatSession(
         const response = await sendChatMessage({
           level: currentLevel,
           messages: toCleanHistory(updatedMessages),
+          sessionSeed,
         });
 
         const { hasWon } = applyChatResponse(response, userMessage);
@@ -312,7 +347,7 @@ export function useChatSession(
         setIsLoading(false);
       }
     },
-    [currentLevel, isLoading, messages, applyChatResponse]
+    [currentLevel, isLoading, messages, applyChatResponse, sessionSeed]
   );
 
   /**
@@ -345,6 +380,7 @@ export function useChatSession(
           level: currentLevel,
           messages: toCleanHistory(updatedMessages),
           assemblyPieces: pieces,
+          sessionSeed,
         });
 
         const { hasWon } = applyChatResponse(response, userMessage);
@@ -365,7 +401,7 @@ export function useChatSession(
         setIsLoading(false);
       }
     },
-    [currentLevel, isLoading, messages, applyChatResponse]
+    [currentLevel, isLoading, messages, applyChatResponse, sessionSeed]
   );
 
   const clearHistory = useCallback(
@@ -379,8 +415,13 @@ export function useChatSession(
       setJustDroppedFragment(null);
       clearAssemblyTimerStorage();
 
+      // Reiniciar la partida => nueva semilla (nuevo orden de descubrimiento e ids).
+      const nextSeed = createSessionSeed();
+      setSessionSeed(nextSeed);
+
       if (typeof window !== 'undefined') {
         try {
+          localStorage.setItem(SESSION_SEED_KEY, nextSeed);
           localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
           localStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
           sessionStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
@@ -403,8 +444,13 @@ export function useChatSession(
     setJustDroppedFragment(null);
     clearAssemblyTimerStorage();
 
+    // Cambiar de modo inicia una partida nueva => nueva semilla.
+    const nextSeed = createSessionSeed();
+    setSessionSeed(nextSeed);
+
     if (typeof window !== 'undefined') {
       try {
+        localStorage.setItem(SESSION_SEED_KEY, nextSeed);
         localStorage.setItem('wifi_quest_level', String(newLevel));
         localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
         localStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
