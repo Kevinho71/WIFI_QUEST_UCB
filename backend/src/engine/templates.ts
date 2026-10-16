@@ -54,9 +54,9 @@ export const TEMPLATES: Record<TemplateKey, readonly [string, string, string]> =
     '¡{verdictWord}, crack! {resultSentence} Cercanía: {proximityWord} 👀',
   ],
   word_riddle: [
-    'Mmm, no es 😅 Pista: {angle}',
-    'Frío todavía 🤔 Pensá así: {angle}',
-    'Nop, pero seguís en juego 🔥 Otra pista: {angle}',
+    'Mmm, no es 😅 Pista: {clue}',
+    'Frío todavía 🤔 Pensá así: {clue}',
+    'Nop, pero seguís en juego 🔥 Otra pista: {clue}',
   ],
   symbol_riddle: [
     'Tampoco es 😅 Pista: {angle}',
@@ -134,6 +134,22 @@ export const TEMPLATES: Record<TemplateKey, readonly [string, string, string]> =
 const NUMERIC_MECHANIC =
   'Tirá un número y te diré si el secreto es mayor o menor que tu tiro';
 
+/**
+ * Pista de respaldo para retos de PALABRA: describe la cercanía sin escribir la
+ * palabra ni recitar el meta-lenguaje de la instrucción (los ángulos de palabra son
+ * descriptores de cercanía, no acertijos).
+ */
+const WORD_CLUE: Record<1 | 2 | 3, string> = {
+  1: 'viene de lejos: piensa en mitología, astronomía o simbolismo',
+  2: 'te doy su campo: piensa en el universo al que pertenece',
+  3: 'te la acerco: es vecina de conceptos que ya conoces',
+};
+
+function wordClue(level: number): string {
+  const l = (Math.min(3, Math.max(1, level)) || 1) as 1 | 2 | 3;
+  return WORD_CLUE[l];
+}
+
 /** Añade artículo si la descripción no lo trae ya (challengeLabel vs describePiece). */
 function ensureArticle(desc: string): string {
   const d = (desc || '').trim();
@@ -157,7 +173,10 @@ function fillsFor(event: TurnEvent, blueprint: Blueprint): Record<string, string
     case 'first_challenge':
       return {
         activeDesc: ensureArticle(event.activeLabel),
-        angle: event.activeAngle ?? NUMERIC_MECHANIC,
+        angle:
+          event.activeKind === 'word'
+            ? wordClue(1)
+            : event.activeAngle ?? NUMERIC_MECHANIC,
       };
     case 'numeric_guess': {
       const higher = event.verdict === 'HIGHER';
@@ -170,6 +189,7 @@ function fillsFor(event: TurnEvent, blueprint: Blueprint): Record<string, string
       };
     }
     case 'word_riddle':
+      return { clue: wordClue(event.level) };
     case 'symbol_riddle':
       return { angle: event.angle };
     case 'piece_hit':

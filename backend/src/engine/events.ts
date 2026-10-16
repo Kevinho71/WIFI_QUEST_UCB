@@ -30,10 +30,17 @@ import {
 
 export type PieceHitKind = 'normal' | 'combo' | 'out_of_turn';
 export type ProximityLabel = 'CALIENTE' | 'TIBIA' | 'FRÍA';
+export type PieceKind = 'word' | 'number' | 'symbol';
 
 export type TurnEvent =
   | { type: 'rompehielo' }
-  | { type: 'first_challenge'; activeLabel: string; activeAngle: string | null }
+  | {
+      type: 'first_challenge';
+      activeLabel: string;
+      activeAngle: string | null;
+      activeKind: PieceKind;
+      activeWord: string | null;
+    }
   | {
       type: 'numeric_guess';
       guess: number;
@@ -63,6 +70,8 @@ export type TurnEvent =
       remaining: number;
       nextLabel: string;
       nextAngle: string | null;
+      nextKind: PieceKind;
+      nextWord: string | null;
     }
   | { type: 'last_piece'; total: number }
   | {
@@ -102,6 +111,16 @@ function pieceType(frag: PasswordFragment): string {
   if (frag.type === 'word') return 'una palabra';
   if (frag.type === 'number') return 'un número';
   return 'un símbolo';
+}
+
+/** Tipo de pieza como valor del evento ('word' | 'number' | 'symbol'). */
+function pieceKind(frag: PasswordFragment): PieceKind {
+  return frag.type;
+}
+
+/** Valor de la palabra (solo si es palabra): el modelo lo recibe para inventar su enigma. */
+function wordValue(frag: PasswordFragment | null): string | null {
+  return frag && frag.type === 'word' ? frag.value : null;
 }
 
 /** Ángulo preescrito (índice 0 = nivel 1). `null` para números. */
@@ -221,6 +240,8 @@ export function deriveEvent(
           remaining: state.pending.length,
           nextLabel: challengeLabel(state.active),
           nextAngle: angleForPiece(state.active, blueprint, 0),
+          nextKind: pieceKind(state.active),
+          nextWord: wordValue(state.active),
         },
         stateAfter: state,
       };
@@ -235,6 +256,8 @@ export function deriveEvent(
               type: 'first_challenge',
               activeLabel: challengeLabel(active),
               activeAngle: angleForPiece(active, blueprint, 0),
+              activeKind: pieceKind(active),
+              activeWord: wordValue(active),
             }
           : { type: 'chitchat', activeDesc: describePiece(active) },
         stateAfter: state,

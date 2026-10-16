@@ -52,6 +52,16 @@ const DATOS_LABELS = [
   /referencia interna/i,
 ];
 
+// Eco del texto de la INSTRUCCIÓN del prompt (meta-lenguaje): umbral 1, porque una
+// sola aparición ya delata que el modelo recitó la directiva en lugar de inventar.
+const ECHO_LABELS = [
+  /prohibido nombrar su categor[ií]a/i,
+  /prohibido definirla/i,
+  /definici[oó]n literal/i,
+  /enigma lejano y metaf[oó]rico/i,
+  /campo conceptual/i,
+];
+
 // Sustantivos de categoría vetados en los enigmas (se tolera el artículo intermedio:
 // "es un animal", "se trata de un planeta", "como una criatura"...).
 const CATEGORY =
@@ -169,8 +179,12 @@ export function validateReply(reply: string, ctx: GuardContext): GuardVerdict {
   const leak = detectLeak(text, ctx);
   if (leak) return { ok: false, reason: leak, leak: true };
 
-  // 4) Anti-volcado: el LLM no debe recitar el bloque de DATOS DEL SISTEMA.
-  if (DATOS_LABELS.filter((re) => re.test(text)).length >= 2) {
+  // 4) Anti-volcado: el LLM no debe recitar el bloque de DATOS DEL SISTEMA ni el
+  //    meta-lenguaje de la instrucción (los descriptores de cercanía, "prohibido...").
+  if (
+    ECHO_LABELS.some((re) => re.test(text)) ||
+    DATOS_LABELS.filter((re) => re.test(text)).length >= 2
+  ) {
     return { ok: false, reason: 'repite el bloque de DATOS DEL SISTEMA' };
   }
 

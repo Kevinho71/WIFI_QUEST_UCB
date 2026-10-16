@@ -122,16 +122,23 @@ describe('Fase 4: engine/prompts (buildPrompt)', () => {
     for (const sc of buildScenarios(bp)) {
       const { event, prompt } = run(sc.history, bp);
       expect(prompt.temperature, sc.name).toBe(EXPECTED_TEMP[event.type]);
-      expect(prompt.maxTokens, sc.name).toBe(160);
+      const expectedTokens =
+        event.type === 'assembly_diff' || event.type === 'assembly_hint' ? 60 : 160;
+      expect(prompt.maxTokens, sc.name).toBe(expectedTokens);
     }
   });
 
-  it('envía el historial según la fase (negotiation/assembly/solved → 1; hunting → 2)', () => {
+  it('envía entre 1 y 3 entradas recientes preservando roles (continuidad)', () => {
     for (const sc of buildScenarios(bp)) {
-      const { event, prompt } = run(sc.history, bp);
-      const single = event.type === 'rompehielo' || event.type === 'assembly_diff' || event.type === 'victory';
-      expect(prompt.messagesForAI, sc.name).toHaveLength(single ? 1 : 2);
-      for (const m of prompt.messagesForAI) expect(m.role).toBe('user');
+      const { stateAfter, prompt } = run(sc.history, bp);
+      expect(prompt.messagesForAI.length, sc.name).toBeGreaterThanOrEqual(1);
+      expect(prompt.messagesForAI.length, sc.name).toBeLessThanOrEqual(3);
+      expect(prompt.messagesForAI[0].role, sc.name).toBe('user');
+      const last = prompt.messagesForAI[prompt.messagesForAI.length - 1];
+      expect(last.content, sc.name).toBe(stateAfter.currentMessage);
+      for (const m of prompt.messagesForAI) {
+        expect(['user', 'assistant'], sc.name).toContain(m.role);
+      }
     }
   });
 
@@ -145,7 +152,7 @@ describe('Fase 4: engine/prompts (buildPrompt)', () => {
 
   it('Golden D — el secreto no viaja en el prompt', () => {
     for (const sc of buildScenarios(bp)) {
-      const { prompt, stateAfter } = run(sc.history, bp);
+      const { prompt, stateAfter, event } = run(sc.history, bp);
 
       if (sc.allowKey) {
         expect(prompt.systemPrompt).toContain(KEY);
@@ -154,7 +161,12 @@ describe('Fase 4: engine/prompts (buildPrompt)', () => {
 
       expect(prompt.systemPrompt, `${sc.name}: clave`).not.toContain(KEY);
 
+      // La palabra del reto SE revela al modelo a propósito (para inventar el enigma).
       const allowed = new Set(sc.allowedValues ?? []);
+      if (event.type === 'word_riddle') allowed.add(event.word);
+      if (event.type === 'first_challenge' && event.activeWord) allowed.add(event.activeWord);
+      if (event.type === 'piece_hit' && event.nextWord) allowed.add(event.nextWord);
+
       for (const frag of stateAfter.pending) {
         if (allowed.has(frag.value)) continue;
         expect(prompt.systemPrompt, `${sc.name}: valor ${frag.value}`).not.toContain(frag.value);
@@ -190,10 +202,30 @@ describe('Fase 4: engine/prompts (buildPrompt)', () => {
       remaining: 3,
       nextLabel: 'número de 4 dígitos',
       nextAngle: null,
+      nextKind: 'number',
+      nextWord: null,
     };
     const prompt = buildPrompt(event, state, [NEG], bp);
     expect(prompt.systemPrompt).toContain('Pieza conseguida: "Quasar"');
     expect(prompt.systemPrompt).toContain('MAYOR o MENOR');
+  });
+
+  it('piece_hit con nueva palabra: la revela al modelo para inventar el enigma', () => {
+    const state = replayState([NEG], bp);
+    const event: TurnEvent = {
+      type: 'piece_hit',
+      kind: 'normal',
+      typed: '#',
+      remaining: 2,
+      nextLabel: 'palabra de 6 letras',
+      nextAngle: 'lejano: mitología, astronomía o simbolismo',
+      nextKind: 'word',
+      nextWord: 'Quasar',
+    };
+    const prompt = buildPrompt(event, state, [NEG], bp);
+    expect(prompt.systemPrompt).toContain('Referencia INTERNA');
+    expect(prompt.systemPrompt).toContain('Quasar');
+    expect(prompt.systemPrompt).toContain('enigma PROPIO');
   });
 
   it('piece_hit out_of_turn: rotula el reto en curso y no lo anuncia como nuevo', () => {
@@ -205,6 +237,8 @@ describe('Fase 4: engine/prompts (buildPrompt)', () => {
       remaining: 5,
       nextLabel: 'número de 3 dígitos',
       nextAngle: null,
+      nextKind: 'number',
+      nextWord: null,
     };
     const prompt = buildPrompt(event, state, [NEG], bp);
     expect(prompt.systemPrompt).toContain('Reto en curso (NO cambió)');

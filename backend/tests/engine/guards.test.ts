@@ -170,4 +170,26 @@ describe('Fase 5: engine/guards', () => {
     expect(res).toMatchObject({ ok: false });
     if (!res.ok) expect(res.reason).toContain('DATOS');
   });
+
+  describe('eco de la instrucción (reto de palabra)', () => {
+    it('rechaza el eco "Prohibido nombrar su categoría"', () => {
+      const { ctx, event } = makeCtx(bp, huntingPrefix(bp, (f) => f.type === 'word'), 'no tengo idea');
+      expect(event.type).toBe('word_riddle');
+      const res = validateReply('Prohibido nombrar su categoría: es un enigma lejano y metafórico 🤔', ctx);
+      expect(res).toMatchObject({ ok: false });
+    });
+
+    it('rechaza el eco del descriptor de cercanía ("campo conceptual")', () => {
+      const { ctx } = makeCtx(bp, huntingPrefix(bp, (f) => f.type === 'word'), 'no tengo idea');
+      const res = validateReply('Está en su campo conceptual 🤔', ctx);
+      expect(res).toMatchObject({ ok: false });
+    });
+
+    it('acepta un enigma propio sin eco de la instrucción', () => {
+      const { ctx } = makeCtx(bp, huntingPrefix(bp, (f) => f.type === 'word'), 'no tengo idea');
+      expect(
+        validateReply('Un faro brillante que devora galaxias enteras, siempre al acecho 👀', ctx)
+      ).toEqual({ ok: true });
+    });
+  });
 });

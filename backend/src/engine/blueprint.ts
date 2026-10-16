@@ -126,13 +126,19 @@ const WORD_ALIASES: Record<string, string[]> = {
   // extender libremente con más palabras si la clave cambia
 };
 
+/**
+ * Descriptores de CERCANÍA por nivel (NO son acertijos): guían al modelo para que
+ * invente su propio enigma sin citar la instrucción. Se mantienen como frases
+ * cortas y se excluyen eufemismos meta ("prohibido", "definición") que el guard de
+ * eco rechaza si el modelo los repite.
+ */
 const WORD_ANGLES: [string, string, string] = [
-  // nivel 1 (0-1 fallos): enigma lejano
-  'Enigma lejano y metafórico: simbolismo, leyendas, mitología o astronomía. Prohibido nombrar su categoría o definirla.',
-  // nivel 2 (2-4 fallos): campo conceptual
-  'Enigma del campo conceptual: insinúa a qué universo pertenece la idea (ciencia, mitología, naturaleza, tecnología) sin nombrarlo.',
-  // nivel 3 (5+ fallos): asociación cercana
-  'Pista cercana: menciona 2 o 3 conceptos vecinos muy relacionados, sin escribir la palabra ni definirla literalmente.',
+  // nivel 1 (0-1 fallos): lejano
+  'lejano: mitología, astronomía o simbolismo',
+  // nivel 2 (2-4 fallos): medio
+  'medio: insinúa su campo conceptual',
+  // nivel 3 (5+ fallos): cercano
+  'cercano: menciona conceptos vecinos',
 ];
 
 export function angleLevel(attempts: number): 1 | 2 | 3 {

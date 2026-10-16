@@ -231,7 +231,7 @@ describe('Golden D — el secreto no viaja en el prompt', () => {
   it('ningún prompt (salvo victory) contiene la clave, valores ni names pendientes', () => {
     const bp = buildBlueprint(KEY);
     for (const sc of buildScenarios(bp)) {
-      const { prompt, stateAfter } = runScenario(sc.history, bp);
+      const { prompt, stateAfter, event } = runScenario(sc.history, bp);
 
       if (sc.allowKey) {
         expect(prompt.systemPrompt).toContain(KEY);
@@ -240,7 +240,12 @@ describe('Golden D — el secreto no viaja en el prompt', () => {
 
       expect(prompt.systemPrompt, `${sc.name}: clave completa`).not.toContain(KEY);
 
+      // La palabra del reto SE revela al modelo a propósito (para inventar el enigma).
       const allowed = new Set(sc.allowedValues ?? []);
+      if (event.type === 'word_riddle') allowed.add(event.word);
+      if (event.type === 'first_challenge' && event.activeWord) allowed.add(event.activeWord);
+      if (event.type === 'piece_hit' && event.nextWord) allowed.add(event.nextWord);
+
       for (const frag of stateAfter.pending) {
         if (allowed.has(frag.value)) continue;
         expect(prompt.systemPrompt, `${sc.name}: valor ${frag.value}`).not.toContain(frag.value);

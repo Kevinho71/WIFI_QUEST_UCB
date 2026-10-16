@@ -185,10 +185,16 @@ describe('API Endpoints (Hono)', () => {
       expect(res.status).toBe(200);
       expect(spyAI).toHaveBeenCalledTimes(1);
 
-      // v2 solo envía mensajes de usuario (nunca respuestas previas del asistente).
+      // v2 envía las últimas ~3 entradas preservando roles (continuidad), sin la
+      // ventana de 6 de v1. El último mensaje siempre es el turno actual del usuario.
       const passedMessages = spyAI.mock.calls[0][1];
-      expect(passedMessages.length).toBeLessThanOrEqual(2);
-      for (const m of passedMessages) expect(m.role).toBe('user');
+      expect(passedMessages.length).toBeLessThanOrEqual(3);
+      expect(passedMessages[passedMessages.length - 1]).toMatchObject({
+        role: 'user',
+        content: 'Turno 4',
+      });
+      // La respuesta previa del asistente viaja para dar continuidad.
+      expect(passedMessages.some((m) => m.role === 'assistant')).toBe(true);
 
       // El turno se deriva del historial: con 4 turnos ya no es rompehielo.
       const systemPrompt = spyAI.mock.calls[0][0];
