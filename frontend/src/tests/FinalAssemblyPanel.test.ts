@@ -71,4 +71,15 @@ describe('FinalAssemblyPanel (render estático)', () => {
     expect(html).toContain('Casilla 1 vacía');
     expect(html).toContain('Casilla 2 vacía');
   });
+
+  it('no muestra la guía textual de pieza seleccionada/arrastrada', () => {
+    const html = render(GAME_STATE);
+    expect(html).not.toContain('Seleccionada:');
+    expect(html).not.toContain('Arrastrando:');
+    expect(html).not.toContain('toca o suelta en una casilla');
+  });
+
+  it('no renderiza el fragmento flotante hasta que empieza un arrastre', () => {
+    expect(render(GAME_STATE)).not.toContain('data-drag-preview');
+  });
 });

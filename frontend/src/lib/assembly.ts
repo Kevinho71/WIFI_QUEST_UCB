@@ -67,3 +67,85 @@ export function buildCandidate(
 ): string {
   return layout.slots.map((id) => (id ? valueById[id] ?? '' : '')).join('');
 }
+
+/** Movimiento de una pieza entre casillas (para la animación FLIP). */
+export interface SlotMove {
+  from: number;
+  to: number;
+}
+
+/**
+ * Calcula qué piezas cambiaron de casilla comparando el layout anterior con el
+ * nuevo. Solo incluye piezas que ya estaban en alguna casilla (no las que llegan
+ * desde la bandeja).
+ */
+export function computeSlotMoves(
+  before: AssemblyLayout,
+  after: AssemblyLayout
+): SlotMove[] {
+  const moves: SlotMove[] = [];
+  const length = Math.min(before.slots.length, after.slots.length);
+
+  for (let to = 0; to < length; to++) {
+    const id = after.slots[to];
+    if (!id) continue;
+    const from = before.slots.indexOf(id);
+    if (from !== -1 && from !== to) moves.push({ from, to });
+  }
+
+  return moves;
+}
+
+/** Índices de casilla cuyo contenido cambió entre dos layouts. */
+export function changedSlotIndexes(
+  before: AssemblyLayout,
+  after: AssemblyLayout
+): number[] {
+  const length = Math.max(before.slots.length, after.slots.length);
+  const changed: number[] = [];
+
+  for (let index = 0; index < length; index++) {
+    if ((before.slots[index] ?? null) !== (after.slots[index] ?? null)) {
+      changed.push(index);
+    }
+  }
+
+  return changed;
+}
+
+/** Estado de validación por casilla. `false` en ambos = casilla neutral. */
+export interface SlotMarks {
+  correct: boolean[];
+  wrong: boolean[];
+}
+
+/** Convierte el feedback del backend en marcas por casilla. */
+export function marksFromFeedback(slotCorrect: boolean[]): SlotMarks {
+  return {
+    correct: slotCorrect.map(Boolean),
+    wrong: slotCorrect.map((isCorrect) => !isCorrect),
+  };
+}
+
+/**
+ * Limpia las marcas de las casillas indicadas, conservando intactas las demás.
+ * Es la base para que los verdes sobrevivan hasta que el usuario toque esa pieza.
+ */
+export function clearSlotMarks(
+  marks: SlotMarks | null,
+  indexes: number[]
+): SlotMarks | null {
+  if (!marks || indexes.length === 0) return marks;
+
+  const correct = [...marks.correct];
+  const wrong = [...marks.wrong];
+
+  for (const index of indexes) {
+    if (index >= 0 && index < correct.length) {
+      correct[index] = false;
+      wrong[index] = false;
+    }
+  }
+
+  return { correct, wrong };
+}

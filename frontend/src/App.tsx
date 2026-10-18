@@ -14,28 +14,6 @@ import { audioService } from '@/services/audioService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, X } from 'lucide-react';
 
-const SOLVED_STORAGE_KEYS: Record<SecurityLevel, string> = {
-  1: 'wifi_quest_solved_lvl_1',
-  2: 'wifi_quest_solved_lvl_2',
-};
-
-function loadSolvedState(): Record<SecurityLevel, boolean> {
-  if (typeof window === 'undefined') return { 1: false, 2: false };
-  try {
-    const lvl1 = localStorage.getItem(SOLVED_STORAGE_KEYS[1]) === 'true';
-    const lvl2 = localStorage.getItem(SOLVED_STORAGE_KEYS[2]) === 'true';
-    const singleSolved = localStorage.getItem('wifi_quest_solved') === 'true';
-    const currentStoredLevel = localStorage.getItem('wifi_quest_level');
-
-    return {
-      1: lvl1 || (currentStoredLevel === '1' && singleSolved),
-      2: lvl2 || (currentStoredLevel === '2' && singleSolved),
-    };
-  } catch {
-    return { 1: false, 2: false };
-  }
-}
-
 export function App() {
   // Puente estable hacia el handler de victoria: `handlePasswordSolved` se define
   // más abajo (depende de `currentLevel`) y el hook se invoca antes.
@@ -62,18 +40,19 @@ export function App() {
   });
 
   const [isValidatorOpen, setIsValidatorOpen] = useState(false);
-  const [solvedLevels, setSolvedLevels] = useState<Record<SecurityLevel, boolean>>(loadSolvedState);
+  const [solvedLevels, setSolvedLevels] = useState<Record<SecurityLevel, boolean>>({
+    1: false,
+    2: false,
+  });
   const [fragmentToInsert, setFragmentToInsert] = useState<{ text: string; id: number } | null>(null);
 
   const handleInsertFragment = (fragmentValue: string) => {
     setFragmentToInsert({ text: fragmentValue, id: Date.now() });
   };
 
-  // Modal grande inicial para elegir modo al ingresar
-  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('wifi_quest_mode_chosen') !== 'true';
-  });
+  // Modal grande inicial para elegir modo al ingresar. Al refrescar se vuelve a
+  // mostrar porque la partida arranca desde cero.
+  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(true);
 
   // Modal de confirmación retador/burlón al intentar cambiar de modo
   const [targetModeToSwitch, setTargetModeToSwitch] = useState<SecurityLevel | null>(null);
@@ -117,18 +96,6 @@ export function App() {
   const isAssemblyPhase = isRawAssemblyPhase && assemblyReady;
   const isAssemblyTransitioning = isRawAssemblyPhase && !isAssemblyPhase;
 
-  // Persistir estado de niveles resueltos en localStorage y sessionStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SOLVED_STORAGE_KEYS[1], String(solvedLevels[1]));
-      localStorage.setItem(SOLVED_STORAGE_KEYS[2], String(solvedLevels[2]));
-      localStorage.setItem('wifi_quest_solved', String(solvedLevels[currentLevel]));
-      sessionStorage.setItem(SOLVED_STORAGE_KEYS[1], String(solvedLevels[1]));
-      sessionStorage.setItem(SOLVED_STORAGE_KEYS[2], String(solvedLevels[2]));
-      sessionStorage.setItem('wifi_quest_solved', String(solvedLevels[currentLevel]));
-    }
-  }, [solvedLevels, currentLevel]);
-
   // Sincronizar nivel de dificultad con el motor de audio
   useEffect(() => {
     audioService.updateLevel(currentLevel);
@@ -140,13 +107,6 @@ export function App() {
       ...prev,
       [level]: true,
     }));
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('wifi_quest_solved', 'true');
-      localStorage.setItem(SOLVED_STORAGE_KEYS[level], 'true');
-      sessionStorage.setItem('wifi_quest_solved', 'true');
-      sessionStorage.setItem(SOLVED_STORAGE_KEYS[level], 'true');
-    }
 
     setVictoryState({
       isOpen: true,
@@ -198,13 +158,6 @@ export function App() {
       ...prev,
       [currentLevel]: false,
     }));
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'false');
-      localStorage.setItem('wifi_quest_solved', 'false');
-      sessionStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'false');
-      sessionStorage.setItem('wifi_quest_solved', 'false');
-    }
   };
 
   const handleAdvanceLevel = () => {
@@ -215,9 +168,6 @@ export function App() {
 
   // Selección inicial desde el modal de bienvenida
   const handleSelectInitialMode = (mode: SecurityLevel) => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('wifi_quest_mode_chosen', 'true');
-    }
     if (mode !== currentLevel) {
       handleConfirmSwitchMode(mode);
     }
@@ -232,16 +182,6 @@ export function App() {
 
   // Confirmar cambio de modo y aplicar Reglas de Limpieza Total (Fase 2.2)
   const handleConfirmSwitchMode = (targetMode: SecurityLevel) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('wifi_quest_level', String(targetMode));
-      localStorage.setItem('wifi_quest_solved', 'false');
-      localStorage.setItem('wifi_quest_solved_lvl_1', 'false');
-      localStorage.setItem('wifi_quest_solved_lvl_2', 'false');
-      sessionStorage.setItem('wifi_quest_solved', 'false');
-      sessionStorage.setItem('wifi_quest_solved_lvl_1', 'false');
-      sessionStorage.setItem('wifi_quest_solved_lvl_2', 'false');
-    }
-
     // Restablecer booleanos de resolución en estado React
     setSolvedLevels({ 1: false, 2: false });
 
@@ -249,7 +189,7 @@ export function App() {
     setVictoryState((prev) => ({ ...prev, isOpen: false }));
     setIsValidatorOpen(false);
 
-    // Cambiar de modo (inicia conversación fresca y guarda en localStorage)
+    // Cambiar de modo (inicia conversación fresca en memoria)
     switchLevel(targetMode);
     setTargetModeToSwitch(null);
   };

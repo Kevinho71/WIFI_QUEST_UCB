@@ -10,7 +10,6 @@ import type {
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { sendChatMessage, ApiError } from '@/services/api';
 import { audioService } from '@/services/audioService';
-import { clearAssemblyTimerStorage } from '@/lib/assemblyTimer';
 
 function createMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -28,25 +27,12 @@ function getInitialGreeting(level: SecurityLevel): ChatMessage {
   };
 }
 
-function getSavedLevel(defaultLevel: SecurityLevel = 1): SecurityLevel {
-  if (typeof window === 'undefined') return defaultLevel;
-  try {
-    const val = localStorage.getItem('wifi_quest_level');
-    if (val === '2') return 2;
-    if (val === '1') return 1;
-  } catch (err) {
-    console.warn('[useChatSession] Error reading wifi_quest_level:', err);
-  }
-  return defaultLevel;
-}
-
 /**
- * Semilla por PARTIDA (Nivel 1): se genera una vez al iniciar y se persiste para
- * reenviarla idéntica en cada turno (el replay del backend debe reconstruir el mismo
- * orden e ids). Solo se regenera al reiniciar la conversación o cambiar de modo.
+ * Semilla por PARTIDA (Nivel 1): se genera una vez al abrir la página y se
+ * mantiene en memoria. Al refrescar o salir se crea una partida nueva.
+ * Debe reenviarse idéntica en cada turno para que el replay del backend
+ * reconstruya el mismo orden e ids.
  */
-const SESSION_SEED_KEY = 'wifi_quest_session_seed_lvl_1';
-
 function createSessionSeed(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -54,80 +40,8 @@ function createSessionSeed(): string {
   return `seed_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function loadSessionSeed(): string {
-  if (typeof window === 'undefined') return createSessionSeed();
-  try {
-    const existing = localStorage.getItem(SESSION_SEED_KEY);
-    if (existing) return existing;
-  } catch (err) {
-    console.warn('[useChatSession] Error reading session seed:', err);
-  }
-  const seed = createSessionSeed();
-  try {
-    localStorage.setItem(SESSION_SEED_KEY, seed);
-  } catch (err) {
-    console.warn('[useChatSession] Error saving session seed:', err);
-  }
-  return seed;
-}
-
-function loadMessagesFromStorage(level: SecurityLevel): ChatMessage[] {
-  if (typeof window === 'undefined') return [getInitialGreeting(level)];
-
-  try {
-    // 1. Clave principal requerida por Fase 2: wifi_quest_messages
-    const raw = localStorage.getItem('wifi_quest_messages');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-
-    // 2. Fallback de compatibilidad con claves anteriores
-    const legacyRaw =
-      sessionStorage.getItem(`wifi_quest_chat_lvl_${level}`) ||
-      localStorage.getItem(`wifi_quest_chat_lvl_${level}`);
-    if (legacyRaw) {
-      const parsed = JSON.parse(legacyRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.warn(`[useChatSession] Error parsing storage for level ${level}:`, err);
-  }
-  return [getInitialGreeting(level)];
-}
-
-function saveMessagesToStorage(messages: ChatMessage[], level: SecurityLevel): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const serialized = JSON.stringify(messages);
-    localStorage.setItem('wifi_quest_messages', serialized);
-    localStorage.setItem('wifi_quest_level', String(level));
-    // Sincronización secundaria para compatibilidad
-    sessionStorage.setItem(`wifi_quest_chat_lvl_${level}`, serialized);
-  } catch (err) {
-    console.warn(`[useChatSession] Error saving storage for level ${level}:`, err);
-  }
-}
-
-function loadGameStateFromStorage(level: SecurityLevel): GameStateDTO | null {
-  if (typeof window === 'undefined' || level !== 1) return null;
-  try {
-    const raw = localStorage.getItem('wifi_quest_game_state_lvl_1');
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.warn('[useChatSession] Error parsing game state from storage:', err);
-  }
-  return null;
-}
-
 /** Historial limpio para la IA: descarta mensajes bloqueados por firewall. */
-function toCleanHistory(messages: ChatMessage[]) {
+export function toCleanHistory(messages: ChatMessage[]) {
   return messages
     .filter((msg) => msg.blockedByFirewall !== true)
     .map((msg) => ({
@@ -149,10 +63,10 @@ export function useChatSession(
   initialLevel: SecurityLevel = 1,
   options?: UseChatSessionOptions
 ) {
-  const [currentLevel, setCurrentLevel] = useState<SecurityLevel>(() => getSavedLevel(initialLevel));
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    loadMessagesFromStorage(getSavedLevel(initialLevel))
-  );
+  const [currentLevel, setCurrentLevel] = useState<SecurityLevel>(initialLevel);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    getInitialGreeting(initialLevel),
+  ]);
 
   // Ref al callback de victoria: evita recrear `sendMessage` en cada render si el
   // consumidor no memoiza la función.
@@ -166,12 +80,11 @@ export function useChatSession(
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   // Semilla por partida (Nivel 1): aleatoriza el orden de descubrimiento y los ids.
-  const [sessionSeed, setSessionSeed] = useState<string>(() => loadSessionSeed());
+  const [sessionSeed, setSessionSeed] = useState<string>(() => createSessionSeed());
 
-  // Estado del juego de desbloqueo secuencial (Lucas - Nivel 1)
-  const [gameState, setGameState] = useState<GameStateDTO | null>(() =>
-    loadGameStateFromStorage(getSavedLevel(initialLevel))
-  );
+  // Estado del juego de desbloqueo secuencial (Lucas - Nivel 1). Vive solo en memoria:
+  // al refrescar o salir se reinicia la partida.
+  const [gameState, setGameState] = useState<GameStateDTO | null>(null);
   const [latestUnlockNotification, setLatestUnlockNotification] =
     useState<UnlockNotification | null>(null);
   const [justDroppedFragment, setJustDroppedFragment] = useState<string | null>(null);
@@ -184,11 +97,6 @@ export function useChatSession(
     }, 3200);
     return () => clearTimeout(timer);
   }, [latestUnlockNotification]);
-
-  // Guardar en localStorage siempre que cambien los mensajes o el nivel
-  useEffect(() => {
-    saveMessagesToStorage(messages, currentLevel);
-  }, [messages, currentLevel]);
 
   /**
    * Procesa una respuesta del backend: sonidos, sincronización del GameState y
@@ -268,17 +176,6 @@ export function useChatSession(
               totalFragments: newGameState.totalFragments,
               isCombo: Boolean(newGameState.isCombo),
             });
-          }
-
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem(
-                'wifi_quest_game_state_lvl_1',
-                JSON.stringify(newGameState)
-              );
-            } catch (storageErr) {
-              console.warn('[useChatSession] Error saving game state:', storageErr);
-            }
           }
 
           return newGameState;
@@ -411,23 +308,11 @@ export function useChatSession(
       setGameState(null);
       setLatestUnlockNotification(null);
       setJustDroppedFragment(null);
-      clearAssemblyTimerStorage();
 
       // Reiniciar la partida => nueva semilla (nuevo orden de descubrimiento e ids).
       const nextSeed = createSessionSeed();
       setSessionSeed(nextSeed);
 
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(SESSION_SEED_KEY, nextSeed);
-          localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
-          localStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
-          sessionStorage.removeItem(`wifi_quest_chat_lvl_${lvl}`);
-          localStorage.removeItem('wifi_quest_game_state_lvl_1');
-        } catch (err) {
-          console.warn(`[useChatSession] Error clearing storage for level ${lvl}:`, err);
-        }
-      }
       setErrorBanner(null);
     },
     [currentLevel]
@@ -440,24 +325,11 @@ export function useChatSession(
     setGameState(null);
     setLatestUnlockNotification(null);
     setJustDroppedFragment(null);
-    clearAssemblyTimerStorage();
 
     // Cambiar de modo inicia una partida nueva => nueva semilla.
     const nextSeed = createSessionSeed();
     setSessionSeed(nextSeed);
 
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(SESSION_SEED_KEY, nextSeed);
-        localStorage.setItem('wifi_quest_level', String(newLevel));
-        localStorage.setItem('wifi_quest_messages', JSON.stringify([initialGreeting]));
-        localStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
-        sessionStorage.removeItem(`wifi_quest_chat_lvl_${newLevel}`);
-        localStorage.removeItem('wifi_quest_game_state_lvl_1');
-      } catch (err) {
-        console.warn(`[useChatSession] Error updating storage on switch to level ${newLevel}:`, err);
-      }
-    }
     setErrorBanner(null);
   }, []);
 

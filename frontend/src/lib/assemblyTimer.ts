@@ -2,12 +2,11 @@
  * Lógica pura del contador (broma) de la fase de ensamblaje final.
  *
  * El contador es puramente teatral: al llegar a cero no se bloquea ni se reinicia
- * nada. Se calcula desde una marca de tiempo persistida para sobrevivir recargas.
+ * nada. La marca de inicio vive en memoria en `useAssemblyTimer`, de modo que al
+ * refrescar o salir la partida arranca desde cero.
  */
 
 export const ASSEMBLY_DURATION_MS = 60_000;
-export const ASSEMBLY_STARTED_AT_KEY = 'wifi_quest_assembly_started_at_lvl_1';
-export const ASSEMBLY_EXPIRED_KEY = 'wifi_quest_assembly_expired_lvl_1';
 
 /** Tiempo restante en ms, nunca negativo. */
 export function computeRemainingMs(
@@ -35,54 +34,4 @@ export function timerBand(remainingMs: number): TimerBand {
   if (remainingMs <= 10_000) return 'critical';
   if (remainingMs <= 30_000) return 'warning';
   return 'normal';
-}
-
-export function readTimestamp(key: string): number | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    const value = Number(raw);
-    return Number.isFinite(value) && value > 0 ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeTimestamp(key: string, value: number): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, String(value));
-  } catch {
-    /* almacenamiento no disponible: el contador sigue funcionando en memoria */
-  }
-}
-
-export function readFlag(key: string): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(key) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function writeFlag(key: string, value: boolean): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, String(value));
-  } catch {
-    /* almacenamiento no disponible */
-  }
-}
-
-/** Limpia la marca de tiempo y el aviso de expiración (al reiniciar el reto). */
-export function clearAssemblyTimerStorage(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(ASSEMBLY_STARTED_AT_KEY);
-    window.localStorage.removeItem(ASSEMBLY_EXPIRED_KEY);
-  } catch {
-    /* almacenamiento no disponible */
-  }
 }

@@ -5,6 +5,10 @@ import {
   clearSlots,
   isLayoutFull,
   buildCandidate,
+  changedSlotIndexes,
+  clearSlotMarks,
+  computeSlotMoves,
+  marksFromFeedback,
   type AssemblyLayout,
 } from '@/lib/assembly';
 
@@ -122,6 +126,76 @@ describe('lib/assembly', () => {
     it('ignora las casillas vacías', () => {
       const layout: AssemblyLayout = { tray: ['f2'], slots: ['f1', null] };
       expect(buildCandidate(layout, { f1: 'abc' })).toBe('abc');
+    });
+  });
+
+  describe('computeSlotMoves', () => {
+    it('detecta las dos piezas de un intercambio', () => {
+      const before: AssemblyLayout = { tray: [], slots: ['a', 'b', 'c'] };
+      const after = placePiece(before, 'a', 2);
+
+      expect(computeSlotMoves(before, after)).toEqual([
+        { from: 2, to: 0 },
+        { from: 0, to: 2 },
+      ]);
+    });
+
+    it('detecta un movimiento a una casilla vacía', () => {
+      const before: AssemblyLayout = { tray: [], slots: ['a', null, null] };
+      const after = placePiece(before, 'a', 2);
+
+      expect(computeSlotMoves(before, after)).toEqual([{ from: 0, to: 2 }]);
+    });
+
+    it('ignora piezas que llegan desde la bandeja', () => {
+      const before: AssemblyLayout = { tray: ['b'], slots: ['a', null] };
+      const after = placePiece(before, 'b', 1);
+
+      expect(computeSlotMoves(before, after)).toEqual([]);
+    });
+
+    it('no devuelve movimientos si no cambió nada', () => {
+      const before: AssemblyLayout = { tray: [], slots: ['a', 'b'] };
+      expect(computeSlotMoves(before, before)).toEqual([]);
+    });
+  });
+
+  describe('changedSlotIndexes', () => {
+    it('marca solo las casillas cuyo contenido cambió', () => {
+      const before: AssemblyLayout = { tray: [], slots: ['a', 'b', 'c'] };
+      const after: AssemblyLayout = { tray: [], slots: ['c', 'b', 'a'] };
+
+      expect(changedSlotIndexes(before, after)).toEqual([0, 2]);
+    });
+
+    it('detecta altas y bajas de piezas', () => {
+      const before: AssemblyLayout = { tray: [], slots: ['a', null] };
+      const after: AssemblyLayout = { tray: [], slots: [null, 'a'] };
+
+      expect(changedSlotIndexes(before, after)).toEqual([0, 1]);
+    });
+  });
+
+  describe('marksFromFeedback / clearSlotMarks', () => {
+    it('convierte el feedback en verdes y rojos', () => {
+      expect(marksFromFeedback([true, false, true])).toEqual({
+        correct: [true, false, true],
+        wrong: [false, true, false],
+      });
+    });
+
+    it('limpia solo las casillas tocadas y conserva el resto', () => {
+      const marks = marksFromFeedback([true, true, false]);
+      const cleared = clearSlotMarks(marks, [1]);
+
+      expect(cleared).toEqual({
+        correct: [true, false, false],
+        wrong: [false, false, true],
+      });
+    });
+
+    it('devuelve null si no había marcas', () => {
+      expect(clearSlotMarks(null, [0])).toBeNull();
     });
   });
 });

@@ -1,9 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import type {
-  AssemblyFeedbackDTO,
-  AssemblyValidationResult,
-  GameStateDTO,
-} from '@/types/chat';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type { AssemblyValidationResult, GameStateDTO } from '@/types/chat';
 import { Button } from '@/components/ui/button';
 import { audioService } from '@/services/audioService';
 import {
@@ -12,10 +9,16 @@ import {
   clearSlots,
   isLayoutFull,
   buildCandidate,
+  changedSlotIndexes,
+  clearSlotMarks,
+  computeSlotMoves,
+  marksFromFeedback,
   type AssemblyLayout,
+  type SlotMarks,
+  type SlotMove,
 } from '@/lib/assembly';
 import { useAssemblyTimer } from '@/hooks/useAssemblyTimer';
-import { ASSEMBLY_EXPIRED_KEY, ASSEMBLY_DURATION_MS, writeFlag } from '@/lib/assemblyTimer';
+import { ASSEMBLY_DURATION_MS } from '@/lib/assemblyTimer';
 import { resolveAssemblyBubbleMessage } from '@/lib/assemblyMessages';
 import {
   Bot,
@@ -36,6 +39,34 @@ interface FinalAssemblyPanelProps {
 }
 
 type DragPayload = { from: 'tray' | 'slot'; id: string; slotIndex?: number };
+
+/** Evita el warning de useLayoutEffect durante el render estático (tests SSR). */
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+/**
+ * Oculta la imagen de arrastre nativa del navegador: usamos nuestro propio
+ * fragmento flotante para que el arrastre se vea igual en desktop y en touch.
+ * El elemento se crea una sola vez y queda oculto fuera de pantalla.
+ */
+let nativeDragImage: HTMLDivElement | null = null;
+
+function suppressNativeDragImage(e: React.DragEvent<HTMLElement>) {
+  if (typeof document === 'undefined') return;
+
+  if (!nativeDragImage) {
+    nativeDragImage = document.createElement('div');
+    nativeDragImage.style.cssText =
+      'position:fixed;top:-1000px;left:-1000px;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(nativeDragImage);
+  }
+
+  try {
+    e.dataTransfer.setDragImage(nativeDragImage, 0, 0);
+  } catch {
+    /* algunos navegadores no permiten personalizar la imagen */
+  }
+}
 
 const TIMER_STYLES: Record<string, { box: string; text: string; icon: string; fill: string }> = {
   normal: {
@@ -83,14 +114,17 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const [selected, setSelected] = useState<DragPayload | null>(null);
   const [dragPayload, setDragPayload] = useState<DragPayload | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
-  const [swapAnim, setSwapAnim] = useState<{ a: number; b: number } | null>(null);
-  const [feedback, setFeedback] = useState<AssemblyFeedbackDTO | null>(null);
+  // Fragmento flotante que sigue al dedo/cursor durante el arrastre.
+  const [dragPreview, setDragPreview] = useState<{ id: string; value: string } | null>(null);
+  // Marcas de validación por casilla. Se conservan hasta que el usuario toca o
+  // mueve esa pieza; una nueva validación reemplaza todas.
+  const [marks, setMarks] = useState<SlotMarks | null>(null);
   const [llmReply, setLlmReply] = useState<string | null>(null);
   // Victoria confirmada: bloquea reenvíos mientras se muestra la animación de acierto.
   const [victoryPending, setVictoryPending] = useState(false);
 
-  // En pantallas táctiles el drag & drop nativo (HTML5) no funciona: priorizamos
-  // el patrón "toca la pieza y luego la casilla" y ocultamos la pista de arrastre.
+  // En pantallas táctiles el drag HTML5 no existe: usamos Pointer Events (más abajo)
+  // y mantenemos el patrón "toca la pieza y luego la casilla" como alternativa.
   const [isTouch, setIsTouch] = useState(
     () =>
       typeof window !== 'undefined' &&
@@ -105,24 +139,45 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     return () => mq.removeEventListener?.('change', handler);
   }, []);
 
-  const swapTimerRef = useRef<number | null>(null);
+  // Refs para la animación FLIP: contenedor de la pieza por casilla y movimiento
+  // pendiente de animar tras el commit de React.
+  const slotPieceRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const pendingFlipRef = useRef<{
+    moves: SlotMove[];
+    rects: Map<number, DOMRect>;
+  } | null>(null);
+  const flipTimersRef = useRef<number[]>([]);
 
-  // Limpia el temporizador de la animación de intercambio al desmontar.
+  // Drag táctil con Pointer Events (el drag HTML5 no dispara en touch).
+  const pointerDragRef = useRef<{
+    payload: DragPayload;
+    startX: number;
+    startY: number;
+    active: boolean;
+    pointerId: number;
+  } | null>(null);
+  const suppressTapRef = useRef(false);
+  const suppressTapTimerRef = useRef<number | null>(null);
+
+  // Posición y nodo del fragmento flotante. Se actualiza directo en el DOM para
+  // que el arrastre no dependa de un re-render por cada movimiento del puntero.
+  const dragGhostRef = useRef<HTMLDivElement | null>(null);
+  const dragPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Limpia los timers de la animación FLIP al desmontar.
   useEffect(
     () => () => {
-      if (swapTimerRef.current !== null) window.clearTimeout(swapTimerRef.current);
+      for (const timer of flipTimersRef.current) window.clearTimeout(timer);
+      flipTimersRef.current = [];
+      if (suppressTapTimerRef.current !== null) {
+        window.clearTimeout(suppressTapTimerRef.current);
+      }
     },
     []
   );
 
-  const { clock, remainingMs, expired, band } = useAssemblyTimer();
 
-  // Persistir el indicador de expiración (sincronización con un sistema externo).
-  // La vista NO depende de este flag: se deriva de `expired`, así que el aviso
-  // nunca se duplica por renders ni recargas.
-  useEffect(() => {
-    if (expired) writeFlag(ASSEMBLY_EXPIRED_KEY, true);
-  }, [expired]);
+  const { clock, remainingMs, expired, band } = useAssemblyTimer();
 
   // Solo el último mensaje del LLM es visible; si aún no hubo validación, se
   // muestra el aviso de expiración o la instrucción inicial.
@@ -176,6 +231,50 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     prevExpiredRef.current = expired;
   }, [expired]);
 
+  // Animación FLIP: tras el commit, cada pieza que cambió de casilla arranca en
+  // la posición de su casilla anterior y se desplaza hasta la nueva. Se anima el
+  // contenido (valor + badge + botón), no el número de posición.
+  useIsomorphicLayoutEffect(() => {
+    const pending = pendingFlipRef.current;
+    pendingFlipRef.current = null;
+    if (!pending || pending.moves.length === 0) return;
+
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    for (const move of pending.moves) {
+      const fromRect = pending.rects.get(move.from);
+      const element = slotPieceRefs.current[move.to];
+      if (!fromRect || !element) continue;
+
+      const toRect = element.getBoundingClientRect();
+      const dx = fromRect.left - toRect.left;
+      const dy = fromRect.top - toRect.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+
+      element.style.transition = 'none';
+      element.style.transform = `translate(${dx}px, ${dy}px)`;
+      element.classList.add('slot-piece-flipping');
+
+      // Fuerza el reflow para que el navegador registre el punto de partida.
+      void element.offsetWidth;
+
+      window.requestAnimationFrame(() => {
+        element.style.transition = 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1)';
+        element.style.transform = 'translate(0, 0)';
+
+        const timer = window.setTimeout(() => {
+          element.style.transition = '';
+          element.style.transform = '';
+          element.classList.remove('slot-piece-flipping');
+        }, 340);
+        flipTimersRef.current.push(timer);
+      });
+    }
+  }, [layout]);
+
   // Endurecimiento: ignora ids que no resuelven a un valor conocido (defensa en
   // profundidad ante estados corruptos; no debería ocurrir tras el fix del drag).
   const knownId = (id: string) => valueById[id] !== undefined;
@@ -188,28 +287,73 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const hasPlaced = placedValidCount > 0;
   const allPlacedCount = placedValidCount;
 
-  // Pieza en curso (arrastrando o seleccionada con tap): guía visual al colocar.
   const isDragging = dragPayload !== null;
-  const carried = dragPayload ?? selected;
+
+  const updateDragPreviewPosition = (x: number, y: number) => {
+    dragPositionRef.current = { x, y };
+    const ghost = dragGhostRef.current;
+    if (!ghost) return;
+    ghost.style.left = `${x}px`;
+    ghost.style.top = `${y}px`;
+  };
+
+  const showDragPreview = (id: string, x: number, y: number) => {
+    dragPositionRef.current = { x, y };
+    setDragPreview({ id, value: valueById[id] ?? '' });
+  };
+
+  const hideDragPreview = () => {
+    setDragPreview(null);
+  };
+
+  // Al montar el fantasma, lo colocamos en la última posición conocida.
+  useIsomorphicLayoutEffect(() => {
+    if (!dragPreview) return;
+    updateDragPreviewPosition(dragPositionRef.current.x, dragPositionRef.current.y);
+  }, [dragPreview]);
+
+  const resetFlipAnimations = () => {
+    for (const timer of flipTimersRef.current) window.clearTimeout(timer);
+    flipTimersRef.current = [];
+
+    for (const element of slotPieceRefs.current) {
+      if (!element) continue;
+      element.style.transition = '';
+      element.style.transform = '';
+      element.classList.remove('slot-piece-flipping');
+    }
+  };
 
   const commit = (next: AssemblyLayout) => {
     if (next === layout) return; // no-op: no suena ni re-renderiza
+
+    // Si había una animación en curso, la cerramos en su posición final antes de
+    // medir, para que un intercambio rápido no herede transforms a medio camino.
+    resetFlipAnimations();
+
+    // Captura las posiciones de origen antes de que React actualice el DOM.
+    const moves = computeSlotMoves(layout, next);
+    if (moves.length > 0) {
+      const rects = new Map<number, DOMRect>();
+      for (const move of moves) {
+        const element = slotPieceRefs.current[move.from];
+        if (element) rects.set(move.from, element.getBoundingClientRect());
+      }
+      pendingFlipRef.current = { moves, rects };
+    } else {
+      pendingFlipRef.current = null;
+    }
+
+    // Solo se limpian las casillas cuyo contenido cambió; el resto conserva sus
+    // marcas verdes/rojas hasta que el usuario las toque.
+    const changed = changedSlotIndexes(layout, next);
+    setMarks((prev) => clearSlotMarks(prev, changed));
+
     audioService.playPiecePlaceSound();
     setLayout(next);
-    setFeedback(null);
   };
 
   const handlePlace = (id: string, slotIndex: number) => {
-    // Intercambio casilla ↔ casilla: dispara el deslizamiento lateral opuesto.
-    const fromSlotIndex = layout.slots.indexOf(id);
-    const targetOccupied = layout.slots[slotIndex] !== null;
-    if (fromSlotIndex !== -1 && fromSlotIndex !== slotIndex && targetOccupied) {
-      const a = Math.min(fromSlotIndex, slotIndex);
-      const b = Math.max(fromSlotIndex, slotIndex);
-      setSwapAnim({ a, b });
-      if (swapTimerRef.current !== null) window.clearTimeout(swapTimerRef.current);
-      swapTimerRef.current = window.setTimeout(() => setSwapAnim(null), 260);
-    }
     commit(placePiece(layout, id, slotIndex));
     setSelected(null);
   };
@@ -220,21 +364,30 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   };
 
   const handleClear = () => {
-    commit(clearSlots(layout));
+    const next = clearSlots(layout);
+    commit(next);
+    setMarks(null);
     setSelected(null);
   };
 
   const handleTrayClick = (id: string) => {
+    if (suppressTapRef.current) return;
     setSelected((prev) => (prev?.from === 'tray' && prev.id === id ? null : { from: 'tray', id }));
   };
 
   const handleSlotClick = (slotIndex: number) => {
+    if (suppressTapRef.current) return;
+
     if (selected) {
       handlePlace(selected.id, slotIndex);
       return;
     }
     const currentId = layout.slots[slotIndex];
-    if (currentId) setSelected({ from: 'slot', id: currentId, slotIndex });
+    if (currentId) {
+      setSelected({ from: 'slot', id: currentId, slotIndex });
+      // Tocar una casilla cuenta como interacción: su marca vuelve a neutral.
+      setMarks((prev) => clearSlotMarks(prev, [slotIndex]));
+    }
   };
 
   const handleSlotKeyDown = (slotIndex: number) => (e: React.KeyboardEvent) => {
@@ -247,7 +400,120 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
   const handleDragStart = (payload: DragPayload) => (e: React.DragEvent<HTMLElement>) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', payload.id);
+    suppressNativeDragImage(e);
+    showDragPreview(payload.id, e.clientX, e.clientY);
+    if (payload.from === 'slot' && payload.slotIndex !== undefined) {
+      setMarks((prev) => clearSlotMarks(prev, [payload.slotIndex as number]));
+    }
     setDragPayload(payload);
+  };
+
+  const handleDragMove = (e: React.DragEvent<HTMLElement>) => {
+    if (!dragPayload) return;
+    updateDragPreviewPosition(e.clientX, e.clientY);
+  };
+
+  const handleDragEnd = () => {
+    setDragPayload(null);
+    setDragOverSlot(null);
+    hideDragPreview();
+  };
+
+  // ---------------------------------------------------------------------------
+  // Drag táctil (Pointer Events). Se mantiene el tap como alternativa.
+  // ---------------------------------------------------------------------------
+  const handlePointerDown =
+    (payload: DragPayload) => (e: React.PointerEvent<HTMLElement>) => {
+      if (!isTouch || e.pointerType === 'mouse' || e.button !== 0) return;
+
+      pointerDragRef.current = {
+        payload,
+        startX: e.clientX,
+        startY: e.clientY,
+        active: false,
+        pointerId: e.pointerId,
+      };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* algunos navegadores no permiten capturar; el flujo sigue funcionando */
+      }
+    };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+
+    if (!drag.active) {
+      if (Math.hypot(dx, dy) < 6) return;
+      drag.active = true;
+      suppressTapRef.current = true;
+      setDragPayload(drag.payload);
+      showDragPreview(drag.payload.id, e.clientX, e.clientY);
+      if (drag.payload.from === 'slot' && drag.payload.slotIndex !== undefined) {
+        setMarks((prev) => clearSlotMarks(prev, [drag.payload.slotIndex as number]));
+      }
+    }
+
+    e.preventDefault();
+    updateDragPreviewPosition(e.clientX, e.clientY);
+
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const slotElement = target?.closest<HTMLElement>('[data-slot-index]');
+    const rawIndex = slotElement?.dataset.slotIndex;
+    setDragOverSlot(rawIndex !== undefined ? Number(rawIndex) : null);
+  };
+
+  const finishPointerDrag = (e: React.PointerEvent<HTMLElement>, cancelled: boolean) => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    pointerDragRef.current = null;
+    const wasActive = drag.active;
+    setDragPayload(null);
+    setDragOverSlot(null);
+    hideDragPreview();
+
+    if (!wasActive) return; // fue un tap: dejar que el click haga su trabajo
+
+    // Evita que el click sintético posterior al arrastre seleccione la pieza.
+    suppressTapRef.current = true;
+    if (suppressTapTimerRef.current !== null) {
+      window.clearTimeout(suppressTapTimerRef.current);
+    }
+    suppressTapTimerRef.current = window.setTimeout(() => {
+      suppressTapRef.current = false;
+    }, 250);
+
+    if (cancelled) return;
+
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+
+    const slotElement = target?.closest<HTMLElement>('[data-slot-index]');
+    if (slotElement) {
+      const slotIndex = Number(slotElement.dataset.slotIndex);
+      if (Number.isFinite(slotIndex)) handlePlace(drag.payload.id, slotIndex);
+      return;
+    }
+
+    if (
+      target?.closest('[data-tray-drop]') &&
+      drag.payload.from === 'slot' &&
+      drag.payload.slotIndex !== undefined
+    ) {
+      handleRemove(drag.payload.slotIndex);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    finishPointerDrag(e, false);
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+    finishPointerDrag(e, true);
   };
 
   const handleDropOnSlot = (slotIndex: number) => (e: React.DragEvent) => {
@@ -255,6 +521,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     setDragOverSlot(null);
     const payload = dragPayload;
     setDragPayload(null);
+    hideDragPreview();
     if (!payload) return;
     handlePlace(payload.id, slotIndex);
   };
@@ -263,6 +530,8 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     e.preventDefault();
     const payload = dragPayload;
     setDragPayload(null);
+    setDragOverSlot(null);
+    hideDragPreview();
     if (payload?.from === 'slot' && payload.slotIndex !== undefined) {
       handleRemove(payload.slotIndex);
     }
@@ -278,7 +547,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
     if (!result) return;
 
     setLlmReply(result.reply);
-    setFeedback(result.feedback ?? null);
+    setMarks(result.feedback ? marksFromFeedback(result.feedback.slotCorrect) : null);
 
     // Refuerzo sonoro: acierto (total o parcial) o fallo.
     if (result.feedback && result.feedback.wellPlaced > 0) {
@@ -367,6 +636,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
               </p>
             ) : (
               <div
+                data-tray-drop
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDropOnTray}
                 className="flex min-h-[56px] flex-wrap items-center gap-2 rounded-xl border border-dashed border-border/70 bg-secondary/15 p-2.5 transition-colors"
@@ -380,12 +650,17 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                       type="button"
                       draggable={!isTouch}
                       onDragStart={isTouch ? undefined : handleDragStart({ from: 'tray', id })}
-                      onDragEnd={() => setDragPayload(null)}
+                      onDrag={isTouch ? undefined : handleDragMove}
+                      onDragEnd={isTouch ? undefined : handleDragEnd}
+                      onPointerDown={isTouch ? handlePointerDown({ from: 'tray', id }) : undefined}
+                      onPointerMove={isTouch ? handlePointerMove : undefined}
+                      onPointerUp={isTouch ? handlePointerUp : undefined}
+                      onPointerCancel={isTouch ? handlePointerCancel : undefined}
                       onClick={() => handleTrayClick(id)}
                       aria-pressed={isSelected}
-                      title={`Pieza " ${frag} ". ${isTouch ? 'Toca para seleccionar' : 'Arrastra a una casilla o toca para seleccionar'}`}
+                      title={`Pieza " ${frag} ". Arrastra a una casilla o toca para seleccionar`}
                       className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-sm font-bold tracking-wide transition-all ${
-                        isTouch ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                        isTouch ? 'cursor-pointer touch-none' : 'cursor-grab active:cursor-grabbing'
                       } ${
                         dragPayload?.from === 'tray' && dragPayload.id === id
                           ? 'opacity-40 border-dashed'
@@ -396,7 +671,7 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                           : 'border-amber-500/50 bg-gradient-to-b from-amber-950/70 via-card to-slate-950/80 text-amber-200 hover:border-amber-400 hover:scale-105'
                       }`}
                     >
-                      {!isTouch && <GripVertical className="size-3 opacity-50" />}
+                      <GripVertical className="size-3 opacity-50" aria-hidden="true" />
                       <span className="max-w-[120px] truncate">{frag}</span>
                     </button>
                   );
@@ -429,37 +704,21 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
               </div>
             </div>
 
-            {/* Guía visual de la pieza en curso (arrastrando o seleccionada) */}
-            {carried && (valueById[carried.id] ?? '') !== '' && (
-              <div className="mb-1.5 flex items-center gap-2 rounded-md border border-amber-400/60 bg-amber-500/10 px-2 py-1 font-mono text-[11px] text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                <span className="text-muted-foreground">
-                  {isDragging ? 'Arrastrando:' : 'Seleccionada:'}
-                </span>
-                <span className="font-bold">[ {valueById[carried.id]} ]</span>
-                <span className="text-muted-foreground">→ toca o suelta en una casilla</span>
-              </div>
-            )}
-
             {/* Lista vertical numerada: el orden 1..N se lee de arriba hacia abajo */}
             <div className="flex flex-col gap-1.5">
               {layout.slots.map((id, index) => {
                 const frag = id && knownId(id) ? valueById[id] : null;
-                const isCorrect = Boolean(feedback && frag && feedback.slotCorrect[index]);
-                const isWrong = Boolean(feedback && frag && !feedback.slotCorrect[index]);
+                const isCorrect = Boolean(frag && marks?.correct[index]);
+                const isWrong = Boolean(frag && marks?.wrong[index]);
                 const isSelected = selected?.from === 'slot' && selected.slotIndex === index;
                 const isDropTarget = dragOverSlot === index;
-                const swapClass =
-                  swapAnim && swapAnim.a === index
-                    ? 'animate-slot-swap-left'
-                    : swapAnim && swapAnim.b === index
-                      ? 'animate-slot-swap-right'
-                      : '';
 
                 return (
                   <div
                     key={index}
                     role="button"
                     tabIndex={0}
+                    data-slot-index={index}
                     aria-label={`Casilla ${index + 1}${frag ? `: ${frag}` : ' vacía'}`}
                     draggable={Boolean(frag) && !isTouch}
                     onDragStart={
@@ -467,7 +726,16 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                         ? handleDragStart({ from: 'slot', id, slotIndex: index })
                         : undefined
                     }
-                    onDragEnd={() => setDragPayload(null)}
+                    onDrag={isTouch ? undefined : handleDragMove}
+                    onDragEnd={isTouch ? undefined : handleDragEnd}
+                    onPointerDown={
+                      frag && id && isTouch
+                        ? handlePointerDown({ from: 'slot', id, slotIndex: index })
+                        : undefined
+                    }
+                    onPointerMove={isTouch ? handlePointerMove : undefined}
+                    onPointerUp={isTouch ? handlePointerUp : undefined}
+                    onPointerCancel={isTouch ? handlePointerCancel : undefined}
                     onClick={() => handleSlotClick(index)}
                     onKeyDown={handleSlotKeyDown(index)}
                     onDragOver={(e) => {
@@ -486,63 +754,73 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
                             : frag
                               ? 'border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-card to-slate-950/70'
                               : 'border-dashed border-border/60 bg-secondary/10'
-                    } ${frag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${
-                      isSelected ? 'ring-2 ring-amber-400/70' : ''
                     } ${
+                      frag
+                        ? `cursor-grab active:cursor-grabbing ${isTouch ? 'touch-none' : ''}`
+                        : 'cursor-pointer'
+                    } ${isSelected ? 'ring-2 ring-amber-400/70' : ''} ${
                       dragPayload?.from === 'slot' && dragPayload.id === id ? 'opacity-40' : ''
-                    } ${swapClass}`}
+                    }`}
                   >
                     {/* Número de posición */}
                     <span className="flex size-6 shrink-0 items-center justify-center rounded border border-border/70 bg-secondary/40 text-[11px] font-bold text-muted-foreground">
                       {index + 1}
                     </span>
 
-                    {/* Valor */}
-                    <span
-                      className={`min-w-0 flex-1 truncate text-sm font-bold tracking-wider ${
-                        isCorrect
-                          ? 'text-emerald-200'
-                          : isWrong
-                            ? 'text-rose-200'
-                            : frag
-                              ? 'text-amber-200'
-                              : 'text-muted-foreground/50'
-                      }`}
+                    {/* Contenido de la pieza: es lo que se anima con FLIP */}
+                    <div
+                      ref={(element) => {
+                        slotPieceRefs.current[index] = element;
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2"
                     >
-                      {frag ?? (selected || isDragging || isDropTarget ? 'Soltar aquí' : 'Vacía')}
-                    </span>
-
-                    {/* Estado de validación (solo tras validar) */}
-                    {isCorrect && (
-                      <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase text-emerald-400">
-                        <CheckCircle2 className="size-3.5" />
-                        bien
-                        <span className="sr-only">posición correcta</span>
-                      </span>
-                    )}
-                    {isWrong && (
-                      <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase text-rose-400">
-                        <X className="size-3.5" />
-                        revisar
-                        <span className="sr-only">posición incorrecta</span>
-                      </span>
-                    )}
-
-                    {/* Retirar pieza */}
-                    {frag && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemove(index);
-                        }}
-                        className="flex size-6 shrink-0 items-center justify-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-rose-500/60 hover:text-rose-300"
-                        title="Retirar pieza a la bandeja"
+                      <span
+                        className={`min-w-0 flex-1 truncate text-sm font-bold tracking-wider ${
+                          isCorrect
+                            ? 'text-emerald-200'
+                            : isWrong
+                              ? 'text-rose-200'
+                              : frag
+                                ? 'text-amber-200'
+                                : 'text-muted-foreground/50'
+                        }`}
                       >
-                        <X className="size-3.5" />
-                        <span className="sr-only">Retirar pieza</span>
-                      </button>
-                    )}
+                        {frag ?? (selected || isDragging || isDropTarget ? 'Soltar aquí' : 'Vacía')}
+                      </span>
+
+                      {/* Estado de validación (solo tras validar) */}
+                      {isCorrect && (
+                        <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase text-emerald-400">
+                          <CheckCircle2 className="size-3.5" />
+                          bien
+                          <span className="sr-only">posición correcta</span>
+                        </span>
+                      )}
+                      {isWrong && (
+                        <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase text-rose-400">
+                          <X className="size-3.5" />
+                          revisar
+                          <span className="sr-only">posición incorrecta</span>
+                        </span>
+                      )}
+
+                      {/* Retirar pieza */}
+                      {frag && (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemove(index);
+                          }}
+                          className="flex size-6 shrink-0 items-center justify-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-rose-500/60 hover:text-rose-300"
+                          title="Retirar pieza a la bandeja"
+                        >
+                          <X className="size-3.5" />
+                          <span className="sr-only">Retirar pieza</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -578,6 +856,30 @@ export const FinalAssemblyPanel: React.FC<FinalAssemblyPanelProps> = ({
           </section>
         </div>
       </div>
+
+      {/* Fragmento flotante durante el arrastre. Va en un portal para que ningún
+          ancestro con transform/overflow lo recorte o desplace. */}
+      {dragPreview &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={dragGhostRef}
+            data-drag-preview
+            aria-hidden="true"
+            className="pointer-events-none fixed z-[100] max-w-[180px] rounded-lg border-2 border-amber-300 bg-gradient-to-b from-amber-400 to-amber-600 px-3 py-2 font-mono text-sm font-bold text-slate-950 shadow-[0_12px_30px_rgba(0,0,0,0.55)] ring-4 ring-amber-500/25"
+            style={{
+              left: 0,
+              top: 0,
+              transform: 'translate(-50%, -130%) rotate(-2deg)',
+            }}
+          >
+            <span className="flex items-center gap-1.5">
+              <GripVertical className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />
+              <span className="min-w-0 truncate">{dragPreview.value}</span>
+            </span>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

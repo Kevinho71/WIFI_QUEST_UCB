@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { SecurityLevel } from '@/types/chat';
 import { LEVEL_CONFIGS } from '@/config/levels';
 import { triggerVictoryConfetti } from '@/lib/confetti';
+import { copyText } from '@/lib/clipboard';
 import { audioService } from '@/services/audioService';
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
   Wifi,
   Copy,
   Check,
+  X,
   ArrowRight,
   Trophy,
   ShieldCheck,
@@ -38,7 +40,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   realPassword,
   onAdvanceLevel,
 }) => {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const copyTimerRef = useRef<number | null>(null);
   const isLevel1 = level === 1;
   const config = LEVEL_CONFIGS[level];
 
@@ -50,15 +53,28 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
     }
   }, [isOpen]);
 
+  // Limpia el timeout del estado de copiado al desmontar.
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
+    },
+    []
+  );
+
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(realPassword);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch (err) {
-      console.warn('No se pudo copiar automáticamente:', err);
-    }
+    const ok = await copyText(realPassword);
+    setCopyStatus(ok ? 'copied' : 'error');
+
+    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = window.setTimeout(() => setCopyStatus('idle'), 2500);
   };
+
+  const copyLabel =
+    copyStatus === 'copied'
+      ? '¡Copiado!'
+      : copyStatus === 'error'
+        ? 'No se pudo copiar. Seleccioná la clave manualmente.'
+        : 'Copiar clave';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -97,19 +113,26 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
               variant="outline"
               size="icon-sm"
               onClick={handleCopy}
-              title={copied ? '¡Copiado!' : 'Copiar clave'}
+              title={copyLabel}
+              aria-label={copyLabel}
               className={`shrink-0 transition-all ${
-                copied
+                copyStatus === 'copied'
                   ? 'border-amber-500 bg-amber-500 text-slate-950 font-bold'
-                  : 'border-amber-500/40 hover:bg-secondary text-amber-400'
+                  : copyStatus === 'error'
+                    ? 'border-rose-500 bg-rose-950/40 text-rose-300'
+                    : 'border-amber-500/40 hover:bg-secondary text-amber-400'
               }`}
             >
-              {copied ? (
+              {copyStatus === 'copied' ? (
                 <Check className="size-4" />
+              ) : copyStatus === 'error' ? (
+                <X className="size-4" />
               ) : (
                 <Copy className="size-4" />
               )}
-              <span className="sr-only">{copied ? '¡Copiado!' : 'Copiar clave'}</span>
+              <span className="sr-only" aria-live="polite">
+                {copyLabel}
+              </span>
             </Button>
           </div>
         </div>
