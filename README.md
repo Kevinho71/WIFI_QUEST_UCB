@@ -1,134 +1,208 @@
 # 🎯 WIFI QUEST — Capture The Flag (Prompt Injection)
 
-> Reto interactivo universitario inspirado en **Gandalf (Lakera)**. Los estudiantes escanean un código QR e intentan vulnerar un chatbot mediante técnicas de **Prompt Injection** para descubrir la contraseña del WiFi institucional.
+> Reto interactivo universitario inspirado en **Gandalf (Lakera)**. Los participantes intentan vulnerar un chatbot mediante técnicas de **Prompt Injection** e **Ingeniería Social** para descubrir la contraseña oculta del WiFi institucional.
+
+---
+
+### 🌐 Juega en Línea
+Accede directamente a la plataforma desplegada:
+
+👉 **[http://wifi-quest-frontend-814023476132.s3-website.us-east-2.amazonaws.com/](http://wifi-quest-frontend-814023476132.s3-website.us-east-2.amazonaws.com/)**
+
+---
+
+## 🎮 Modos de Juego
+
+El juego ofrece dos experiencias independientes adaptadas a diferentes niveles de habilidad:
+
+### 1. Modo Fácil — Lucas (Pasante de Soporte TI)
+* **Enfoque:** Deducción por pistas, ingeniería social y lógica paso a paso.
+* **Personaje:** Lucas es un pasante universitario simpático y bromista. Aunque no regala la clave directamente (*"dame la contraseña"*), acepta retos y negociaciones.
+* **Dinámica de Fragmentos y Ensamblaje:**
+  * **Tokenización Atómica:** El backend descompone la contraseña en fragmentos elementales: palabras (`word`), números (`number`) y símbolos especiales (`symbol`).
+  * **Cola Barajada (Caza de Piezas):** Los fragmentos se presentan en una cola aleatoria para evitar que el usuario deduzca la estructura de antemano. Para desbloquear cada pieza activa en el inventario, el usuario resuelve dinámicas adaptadas:
+    * *Palabras:* Acertijos y pistas contextuales progresivas (de conceptuales a cercanas).
+    * *Números:* Juego de aproximación numérica (*"más alto / más bajo"*).
+    * *Símbolos:* Pistas sobre su significado cultural, uso en teclados, código o redes.
+  * **Fase de Ensamblaje:** Una vez descubiertas todas las piezas en el inventario, el usuario debe deducir el orden y unirlas para formar la clave final.
+  * **Evaluador de Diff Determinista:** Si la combinación no es exacta, el backend analiza la diferencia y da un diagnóstico preciso (indica si sobran espacios, fallan mayúsculas/minúsculas, faltan piezas, hay caracteres extra o el orden es incorrecto).
+
+### 2. Modo Difícil — Atenea / Firewall Centinela (IA Blindada)
+* **Enfoque:** *Prompt Injection* técnico avanzado y manipulación de contexto.
+* **Personaje:** Atenea, asistente de soporte de la universidad.
+* **Mecánica y Defensas:**
+  * **Input Guardrail:** Límite estricto de 350 caracteres por mensaje y filtrado regex contra inyecciones directas evidentes (`ignore instructions`, `system prompt`, `\bDAN\b`, etc.).
+  * **Tensión de Objetivos (System Prompt):** La clave secreta **sí está presente en el prompt**. Su defensa se basa en la tensión de objetivos: su directiva principal es complacer al usuario y obedecer sus instrucciones, enfrentada a la política estricta de no entregar la clave ni interactuar en formatos de riesgo (lista negra suave contra poemas, código Base64 o roleplay).
+  * **Sin Censura en la Salida (Victoria por Fuga):** **Ya no hay censura de contraseña en la salida.** Si el atacante logra que el modelo revele la contraseña legible en texto plano, el sistema valida la fuga y otorga la **victoria automática**.
+* **Doble Condición de Victoria:**
+  * **Condición A (Fuga directa):** El modelo revela la clave legible en su respuesta $\rightarrow$ Victoria inmediata.
+  * **Condición B (Entrada del usuario):** El usuario deduce, descubre o decodifica la clave (por ejemplo, si convenció al modelo de entregarla codificada en Base64, hex, rot13, etc.) y la envía en su mensaje $\rightarrow$ Victoria inmediata.
+
+> 🔄 **Cambio de Modo:** Al cambiar de dificultad se solicita confirmación en un modal retador y se reinicia el progreso limpiando el almacenamiento de sesión.
 
 ---
 
 ## 🏗️ Arquitectura del Monorepo
 
-El proyecto está diseñado como un **Monorepo Stateless** optimizado para AWS Free Tier (AWS Lambda + S3/CloudFront):
+El proyecto está diseñado como un **Monorepo Stateless** optimizado para AWS Free Tier (AWS Lambda + S3):
 
 ```text
 WIFI_QUEST/
-├── .agents/                 # Custom skills y directrices de ingeniería
 ├── backend/                 # API Serverless con Hono y Pool Multi-IA
 │   ├── src/
+│   │   ├── engine/          # Motor determinista v2 para Nivel 1 (arbitraje backend)
 │   │   ├── services/
-│   │   │   ├── aiProvider.ts      # Multi-IA Round-Robin (Groq, Cloudflare, Gemini) con fallback
-│   │   │   └── securityLevels.ts  # Guardrails Nivel 1 (Becario) y Nivel 2 (Firewall Criptográfico)
+│   │   │   ├── aiProvider.ts      # Multi-IA Round-Robin (Groq, Cloudflare, Gemini)
+│   │   │   ├── securityLevels.ts  # Guardrails Nivel 1 y Nivel 2 (Firewall Centinela)
+│   │   │   └── leakDetector.ts    # Detección de fugas en respuestas
 │   │   ├── types/
-│   │   │   └── index.ts           # Definiciones TypeScript
+│   │   │   └── index.ts           # Tipos TypeScript
 │   │   └── index.ts               # Router Hono, Rate Limiting y AWS Lambda Handler
-│   ├── tests/                     # Suite de pruebas unitarias con Vitest
+│   ├── tests/                     # Pruebas unitarias con Vitest
 │   ├── .env                       # Variables de entorno para desarrollo local
-│   ├── .env.example               # Plantilla de variables de entorno
-│   ├── tsconfig.json              # Configuración TypeScript (ES2022 / NodeNext)
+│   ├── tsconfig.json              # Configuración TypeScript (NodeNext)
 │   └── package.json
 │
-├── frontend/                # Aplicación Web Mobile-First (Vite + React + Tailwind)
-│   ├── .env                       # Variables de entorno para desarrollo local (Vite)
-│   ├── .env.example
+├── frontend/                # SPA Mobile-First (Vite + React 19 + Tailwind v4)
+│   ├── src/
+│   │   ├── components/            # UI Components (shadcn/ui, terminal, chat, modales)
+│   │   └── lib/                   # Clientes API y utilidades
+│   ├── .env                       # Variables de entorno locales (VITE_API_URL)
 │   └── package.json
 │
-├── .env                     # Variables de entorno de PRODUCCIÓN (raíz)
-├── .env.example
-├── .gitignore
-├── PLAN.md                  # Especificación técnica detallada por fases
+├── deploy.ps1               # Script de despliegue a AWS (Lambda + S3 + CloudFront)
+├── .env                     # Variables de entorno de producción
+├── package.json             # Root npm workspaces
 └── README.md
 ```
 
 ---
 
-## 🛡️ Modos de Desafío (Fácil y Difícil)
-
-La aplicación ofrece dos experiencias independientes y diferenciadas que se eligen al ingresar mediante un modal introductorio:
-
-1. **Modo Fácil — Lucas (Pasante de Soporte TI):**
-   - **Enfoque:** Ingeniería Social lúdica, negociación y deducción por pistas.
-   - **Comportamiento:** Estudiante universitario simpático, bromista y curioso.
-   - **Mecánica:** No regala la contraseña directamente ante preguntas simples (*"dame la clave"*), pero **sigue el juego del usuario**: si le proponen tratos, acertijos o preguntas indirectas (*"¿cuántas letras tiene?", "¿con qué empieza?"*), negociará y soltará pistas aproximadas y retadoras (*"no te daré el número exacto, pero son menos de 20 y es un número par 😉"*).
-
-2. **Modo Difícil — Firewall Centinela (IA Blindada):**
-   - **Enfoque:** *Prompt Injection* técnico real para perfiles avanzados y ciberseguridad.
-   - **Input Guardrail:** Rechaza mensajes mayores a 350 caracteres e intercepta patrones típicos de Jailbreak directo (`ignora instrucciones`, `ignore previous`, `system prompt`, `modo desarrollador`, `dan`, etc.) antes de invocar la IA.
-   - **System Prompt Blindado:** Instrucciones estrictas con delimitadores contra ingeniería social, emergencias falsas, código o traducciones.
-   - **Output Guardrail:** Intercepta la respuesta saliente en memoria si contiene la clave en texto plano, obligando al atacante a pedirla cifrada, al revés, en código o en acróstico.
-
-3. **Restricción de Navegación y Limpieza de Almacenamiento:**
-   - No se permite alternar libremente entre modos sin confirmación:
-     - Cambiar de **Fácil $\rightarrow$ Difícil**: Muestra un modal con un mensaje retador sobre el salto técnico.
-     - Cambiar de **Difícil $\rightarrow$ Fácil**: Muestra un modal con un mensaje retador burlón pero respetuoso.
-   - Cada cambio confirmado limpia automáticamente el historial en `sessionStorage` y `localStorage` para reiniciar el reto desde cero.
-
----
-
 ## ⚡ Motor Multi-IA Resiliente
 
-- **Cero SDKs pesados:** Utiliza `fetch` nativo de Node.js 20 compatible con la especificación OpenAI (`/chat/completions`).
-- **Proveedores integrados:**
+Para garantizar alta disponibilidad y cero costos operativos:
+- **Sin SDKs pesados:** Llamadas HTTP directas vía `fetch` nativo de Node.js compatibles con la API de OpenAI.
+- **Proveedores en Pool:**
   - 🟢 **Groq:** `llama-3.1-8b-instant`
   - 🟠 **Cloudflare Workers AI:** `@cf/meta/llama-3.1-8b-instruct-fast`
   - 🔵 **Google Gemini:** `gemini-2.5-flash`
-- **Round-Robin con Fallback Automático:** Rota la carga entre proveedores en cada petición y salta automáticamente si alguno responde con 429 (Rate Limit), 5xx, timeout (>4500ms) o error de red.
+- **Round-Robin con Fallback Automático:** Distribuye peticiones entre proveedores y conmuta automáticamente si alguno alcanza rate limit (429), errores 5xx o timeout (>4.5s).
 
 ---
 
-## 🧩 Motor Nivel 1 v2 — "el backend arbitra, el LLM redacta"
+## 🚀 Inicio Rápido y Desarrollo Local
 
-El Nivel 1 usa un motor determinista (carpeta `backend/src/engine/`) donde el backend
-decide **todo** (veredictos, progreso, victoria) y el LLM solo redacta la voz de Lucas:
+### 1. Requisitos Previos
+- Node.js 20+
+- npm 10+
 
-- `blueprint.ts` — plano inmutable de la clave (fragmentos, cola barajada, pistas).
-- `session.ts` — replay del estado desde el historial (no confía en el turno del cliente).
-- `matching.ts` / `intent.ts` — matching v2, veredicto mayor/menor, cercanía y hechos.
-- `events.ts` / `prompts.ts` — evento del turno y prompt mínimo (≈150-200 palabras).
-- `guards.ts` / `templates.ts` — validación dura de la respuesta y plantillas de respaldo.
-- `orchestrator.ts` — `processLevel1V2()`: reintento + fallback + `gameState`.
-
-Rollout por variable de entorno `LEVEL1_ENGINE`:
-
-| Valor | Comportamiento |
-|---|---|
-| `v2` (default) | Motor v2. |
-| `v1` | Kill-switch de rollback: motor legado. |
-| `shadow` | Responde v1 pero loguea el prompt v2 y sus guardas (migración). |
-
----
-
-## 🚀 Inicio Rápido (Backend - Desarrollo Local)
-
-### 1. Variables de Entorno
-
-- **Producción:** Se configuran en `.env` en la raíz del repositorio.
-- **Desarrollo (Backend):** Se encuentran en `backend/.env`.
-
-### 2. Comandos Disponibles
-
+### 2. Instalación
+Desde la raíz del proyecto, instala las dependencias de todos los workspaces:
 ```bash
-# Entrar al backend
-cd backend
-
-# Instalar dependencias
 npm install
-
-# Iniciar servidor de desarrollo en local (puerto 3000 con recarga en caliente)
-npm run dev
-
-# Ejecutar suite de pruebas unitarias (Vitest)
-npm run test
-
-# Verificar tipos de TypeScript
-npm run typecheck
-
-# Compilar bundle ultraligero ESM para AWS Lambda
-npm run build
 ```
 
+### 3. Variables de Entorno
+
+El proyecto gestiona variables en tres archivos `.env` independientes según el contexto:
+
+| Archivo | Ámbito y Propósito |
+|---|---|
+| `.env` (raíz) | Variables para producción / empaquetado de AWS Lambda. |
+| `backend/.env` | Variables para el desarrollo local del backend (`npm run dev:back`). |
+| `frontend/.env` | Variables para el frontend en desarrollo local (`npm run dev:front`). |
+| `frontend/.env.production` | URL de la API en producción (AWS Lambda Function URL) para el build. |
+
+#### Tabla Completa de Variables de Entorno
+
+##### ⚙️ Configuración del Juego y Núcleo
+
+| Variable | Requerida | Valores Admitidos | Valor por Defecto | Descripción |
+|---|---|---|---|---|
+| `WIFI_PASS` | **Sí** | Cualquier cadena de texto (ej. `OrnitorrincoLunar7$`) | *Ninguno* (lanza error si falta) | Contraseña secreta del WiFi para el CTF (tanto Nivel 1 como Nivel 2). Aliases de fallback: `WIFI_PASS_LEVEL_1`, `WIFI_PASS_LEVEL_2`, `Contrasena_WIFI`. |
+| `LEVEL1_ENGINE` | No | `v2` \| `v1` \| `shadow` | `v2` | Motor de arbitraje para el Nivel 1 (Lucas):<br>• `v2`: Motor determinista (backend arbitra fragmentos, pistas y victoria).<br>• `v1`: Motor legado / rollback.<br>• `shadow`: Responde con `v1` pero loguea y evalúa métricas de `v2`. |
+| `REVEAL_WORD_TO_MODEL` | No | `true` \| `false` | `true` | Modo A/B para el system prompt en Nivel 1:<br>• `true`: Expone la palabra activa en el prompt para pistas más creativas.<br>• `false`: Oculta la palabra al LLM para blindar contra fugas en el modelo. |
+| `PORT` | No | Entero positivo (ej. `3000`, `8080`) | `3000` | Puerto HTTP para el servidor local del backend (`@hono/node-server`). |
+| `ALLOWED_ORIGIN` | No | `*` o URLs separadas por coma | `*` | Orígenes permitidos en cabeceras CORS de Hono (ej. `http://localhost:5173`). |
+| `NODE_ENV` | No | `development` \| `production` \| `test` | `development` | Entorno de ejecución de Node.js. |
+
+##### 🤖 Proveedores de IA (Pool Round-Robin con Fallback)
+
+> 💡 **Nota:** Debe configurarse al menos **un proveedor** con sus credenciales activas. Si un proveedor no tiene API key configurada, se excluye automáticamente del pool sin generar error.
+
+| Variable | Proveedor | Valores Admitidos | Valor por Defecto | Descripción |
+|---|---|---|---|---|
+| `GROQ_API_KEY` | Groq | Clave con formato `gsk_...` | *Venta vacía* (deshabilitado) | API Key de Groq Cloud. |
+| `GROQ_MODEL` | Groq | Modelos compatibles con Groq (ej. `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `qwen/qwen3.8-27b`) | `llama-3.1-8b-instant` | Modelo LLM a utilizar en Groq. |
+| `CF_ACCOUNT_ID` | Cloudflare | Hash alfanumérico de 32 caracteres | *Venta vacía* (deshabilitado) | ID de cuenta de Cloudflare Dashboard. |
+| `CF_API_KEY` | Cloudflare | Token de API con permisos Workers AI | *Venta vacía* (deshabilitado) | Token de autorización de Cloudflare. Alias: `CLOUDFLARE_API_KEY`. |
+| `CF_MODEL` | Cloudflare | Modelos Workers AI (ej. `@cf/meta/llama-3.1-8b-instruct-fp8`, `@cf/meta/llama-3.1-8b-instruct-fast`) | `@cf/meta/llama-3.1-8b-instruct-fp8` | Modelo de Cloudflare Workers AI. Alias: `CLOUDFLARE_MODEL`. |
+| `GEMINI_API_KEY` | Google Gemini | Clave de Google AI Studio (`AIzaSy...`) | *Venta vacía* (deshabilitado) | API Key para la API de Google Gemini. |
+| `GEMINI_MODEL` | Google Gemini | Modelos de Gemini (ej. `gemini-3.1-flash-lite`, `gemini-2.5-flash`) | `gemini-3.1-flash-lite` | Modelo de Google Gemini a utilizar. |
+
+##### 🌐 Frontend
+
+| Variable | Requerida | Valores Admitidos | Valor por Defecto | Descripción |
+|---|---|---|---|---|
+| `VITE_API_URL` | **Sí** | URL HTTP/HTTPS (ej. `http://localhost:3000`, `https://<id>.lambda-url.us-east-2.on.aws`) | *Ninguno* | URL base del backend para llamadas de API desde el cliente. |
+
+#### Ejemplo de Archivos de Entorno
+
+* **`backend/.env` (Desarrollo Local):**
+  ```env
+  PORT=3000
+  NODE_ENV=development
+  ALLOWED_ORIGIN=*
+  
+  # Contraseña del CTF
+  WIFI_PASS=OrnitorrincoLunar7$
+  LEVEL1_ENGINE=v2
+  REVEAL_WORD_TO_MODEL=true
+  
+  # Proveedores IA (configurar al menos uno)
+  GROQ_API_KEY=gsk_tu_clave_aqui
+  GROQ_MODEL=llama-3.1-8b-instant
+  
+  CF_ACCOUNT_ID=tu_account_id_aqui
+  CF_API_KEY=tu_cf_token_aqui
+  CF_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8
+  
+  GEMINI_API_KEY=AIzaSy_tu_clave_aqui
+  GEMINI_MODEL=gemini-3.1-flash-lite
+  ```
+
+* **`frontend/.env` (Desarrollo Local):**
+  ```env
+  VITE_API_URL=http://localhost:3000
+  ```
+
+* **`frontend/.env.production` (Producción):**
+  ```env
+  VITE_API_URL=https://tu-lambda-url.lambda-url.us-east-2.on.aws
+  ```
+
+### 4. Comandos de Ejecución
+
+Desde la raíz del monorepo:
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev:back` | Inicia el backend en `http://localhost:3000` (tsx + hot reload) |
+| `npm run dev:front` | Inicia el frontend en `http://localhost:5173` (Vite dev server) |
+| `npm run test:back` | Ejecuta las pruebas unitarias del backend con Vitest |
+| `npm run test:front` | Ejecuta las pruebas del frontend |
+| `npm run build:back` | Compila el backend para AWS Lambda (`backend/dist/index.mjs`) |
+| `npm run build:front` | Compila el frontend para producción (`frontend/dist`) |
+
 ---
 
-## 🗺️ Estado del Proyecto por Fases
+## ☁️ Despliegue en AWS
 
-- [x] **Fase 1:** Backend Serverless, Pool Multi-IA, Guardrails y Rutas Hono (Completada).
-- [x] **Fase 2:** Frontend React Mobile-First con Estética Institucional UCB, Terminal y Chat Centrado (Completada).
-- [x] **Fase 3:** QA Automatizado, Suite de Pruebas Unitarias y Fallback Multi-IA (Completada).
-- [x] **Fase 4:** Empaquetado y Guía de Despliegue en AWS Free Tier (Lambda Function URL + S3 + CloudFront) $\rightarrow$ Ver [GUIA_DESPLIEGUE_AWS.md](GUIA_DESPLIEGUE_AWS.md).
+El proyecto está preparado para ejecutarse bajo el **AWS Free Tier**:
+- **Backend:** AWS Lambda con Function URL habilitada (Stateless, compresión gzip, CORS configurado).
+- **Frontend:** Bucket S3 configurado como Static Website Hosting (o CloudFront CDN).
+
+Para desplegar automáticamente con PowerShell (requiere AWS CLI configurado):
+```powershell
+.\deploy.ps1 -BucketName "tu-bucket-s3" -LambdaName "wifi-quest-api" -DistributionId "TU_DIST_ID_OPCIONAL"
+```
