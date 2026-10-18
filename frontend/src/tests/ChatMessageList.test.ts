@@ -13,6 +13,10 @@ function render(messages: ChatMessage[]): string {
 }
 
 describe('ChatMessageList: fuga interceptada y victoria', () => {
+  it('expone el ancla del canal para el onboarding', () => {
+    const html = render([{ id: 'w', role: 'assistant', content: 'Hola', timestamp: 1 }]);
+    expect(html).toContain('data-tour="chat-channel"');
+  });
   it('muestra el badge de fuga interceptada cuando el mensaje tiene leakBlocked', () => {
     const html = render([
       { id: 'a', role: 'assistant', content: 'Casi, pero no te la doy 😅', leakBlocked: true, timestamp: 1 },

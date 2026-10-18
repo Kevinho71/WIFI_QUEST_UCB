@@ -48,7 +48,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     <div className="flex-1 overflow-y-auto px-2 py-2.5 sm:px-4 space-y-3.5">
       <div className="mx-auto w-full max-w-3xl space-y-3.5">
         {/* Indicador de inicio de sesión de terminal */}
-        <div className="mx-auto flex max-w-md flex-col items-center justify-center text-center py-1 font-mono text-[11px]">
+        <div
+          data-tour="chat-channel"
+          className="mx-auto flex max-w-md flex-col items-center justify-center text-center py-1 font-mono text-[11px]"
+        >
           <div className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-secondary/80 px-3.5 py-1 shadow-sm">
             <Cpu className="size-3 text-primary" />
             <span className="font-semibold text-foreground tracking-wide">

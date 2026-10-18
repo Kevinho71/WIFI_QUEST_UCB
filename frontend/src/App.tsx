@@ -10,6 +10,7 @@ import { KeyringDock } from '@/components/chat/KeyringDock';
 import { FinalAssemblyPanel } from '@/components/chat/FinalAssemblyPanel';
 import { ModeSelectionModal } from '@/components/chat/ModeSelectionModal';
 import { ModeSwitchModal } from '@/components/chat/ModeSwitchModal';
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { audioService } from '@/services/audioService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, X } from 'lucide-react';
@@ -44,6 +45,39 @@ export function App() {
     1: false,
     2: false,
   });
+
+  // Onboarding en memoria: se muestra una vez por modo en esta página y vuelve
+  // a aparecer al refrescar, igual que el resto del estado de la partida.
+  const [onboardingLevel, setOnboardingLevel] = useState<SecurityLevel | null>(null);
+  const seenOnboardingRef = useRef<Record<SecurityLevel, boolean>>({ 1: false, 2: false });
+  const onboardingTimerRef = useRef<number | null>(null);
+
+  const startOnboarding = useCallback((level: SecurityLevel) => {
+    if (seenOnboardingRef.current[level]) return;
+    if (onboardingTimerRef.current !== null) {
+      window.clearTimeout(onboardingTimerRef.current);
+    }
+    onboardingTimerRef.current = window.setTimeout(() => {
+      onboardingTimerRef.current = null;
+      if (!seenOnboardingRef.current[level]) setOnboardingLevel(level);
+    }, 350);
+  }, []);
+
+  const closeOnboarding = useCallback(() => {
+    if (onboardingLevel) {
+      seenOnboardingRef.current[onboardingLevel] = true;
+    }
+    setOnboardingLevel(null);
+  }, [onboardingLevel]);
+
+  useEffect(
+    () => () => {
+      if (onboardingTimerRef.current !== null) {
+        window.clearTimeout(onboardingTimerRef.current);
+      }
+    },
+    []
+  );
   const [fragmentToInsert, setFragmentToInsert] = useState<{ text: string; id: number } | null>(null);
 
   const handleInsertFragment = (fragmentValue: string) => {
@@ -53,6 +87,16 @@ export function App() {
   // Modal grande inicial para elegir modo al ingresar. Al refrescar se vuelve a
   // mostrar porque la partida arranca desde cero.
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(true);
+
+  // Si el modal inicial se cierra (eligiendo modo o con la X), arranca el
+  // tutorial del modo activo. Así el onboarding no se pierde si no se elige.
+  const wasSelectionModalOpenRef = useRef(isSelectionModalOpen);
+  useEffect(() => {
+    if (wasSelectionModalOpenRef.current && !isSelectionModalOpen) {
+      startOnboarding(currentLevel);
+    }
+    wasSelectionModalOpenRef.current = isSelectionModalOpen;
+  }, [isSelectionModalOpen, currentLevel, startOnboarding]);
 
   // Modal de confirmación retador/burlón al intentar cambiar de modo
   const [targetModeToSwitch, setTargetModeToSwitch] = useState<SecurityLevel | null>(null);
@@ -166,7 +210,8 @@ export function App() {
     setIsValidatorOpen(false);
   };
 
-  // Selección inicial desde el modal de bienvenida
+  // Selección inicial desde el modal de bienvenida. El tutorial se dispara al
+  // cerrarse el modal (ver efecto de `isSelectionModalOpen`).
   const handleSelectInitialMode = (mode: SecurityLevel) => {
     if (mode !== currentLevel) {
       handleConfirmSwitchMode(mode);
@@ -192,6 +237,7 @@ export function App() {
     // Cambiar de modo (inicia conversación fresca en memoria)
     switchLevel(targetMode);
     setTargetModeToSwitch(null);
+    startOnboarding(targetMode);
   };
 
   return (
@@ -317,6 +363,15 @@ export function App() {
         targetMode={targetModeToSwitch}
         onConfirmSwitch={handleConfirmSwitchMode}
       />
+
+      {/* Tutorial guiado con spotlight (se monta solo cuando toca mostrarlo). */}
+      {onboardingLevel !== null && (
+        <OnboardingTour
+          key={onboardingLevel}
+          level={onboardingLevel}
+          onClose={closeOnboarding}
+        />
+      )}
     </div>
   );
 }

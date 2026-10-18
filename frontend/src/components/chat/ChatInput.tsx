@@ -130,7 +130,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     <div className="border-t border-border/80 bg-background/95 backdrop-blur-md px-2 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-4">
       <div className="mx-auto w-full max-w-3xl space-y-2">
         {/* Sugerencias rápidas de ataque CTF (scroll horizontal para móvil) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
+        <div
+          data-tour="suggestions"
+          className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar"
+        >
           <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground/80 shrink-0">
             <Sparkles className="size-3 text-primary" />
             <span>Pistas:</span>
@@ -149,7 +152,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
 
         {/* Formulario de entrada terminal */}
-        <form onSubmit={handleSubmit} className="relative flex items-end gap-2">
+        <form
+          data-tour="input"
+          onSubmit={handleSubmit}
+          className="relative flex items-end gap-2"
+        >
           <div
             className={`relative flex-1 rounded-xl border p-2 shadow-inner transition-all ${
               isSolved

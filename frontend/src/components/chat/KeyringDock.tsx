@@ -83,7 +83,10 @@ export const KeyringDock: React.FC<KeyringDockProps> = ({
   }
 
   return (
-    <div className="relative w-full border-b border-primary/25 bg-card/65 shadow-lg backdrop-blur-md">
+    <div
+      data-tour="keyring"
+      className="relative w-full border-b border-primary/25 bg-card/65 shadow-lg backdrop-blur-md"
+    >
       {/* Toast sutil flotante de fragmento obtenido */}
       {unlockNotification && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-lg animate-unlock-toast">
@@ -117,6 +120,7 @@ export const KeyringDock: React.FC<KeyringDockProps> = ({
       <div className="mx-auto max-w-4xl px-3 py-1.5 sm:px-4">
         {/* Barra compacta (siempre una sola fila): contador · reto · ver piezas */}
         <button
+          data-tour="keyring-toggle"
           type="button"
           onClick={() => setIsOpen((v) => !v)}
           aria-expanded={isOpen}

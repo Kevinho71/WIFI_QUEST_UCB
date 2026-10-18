@@ -96,6 +96,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <>
               {/* Audio */}
               <Button
+                data-tour="header-audio"
                 variant="ghost"
                 size="icon"
                 className={`size-8 transition-all ${
@@ -126,6 +127,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
               {/* Reiniciar */}
               <Button
+                data-tour="header-reset"
                 variant="ghost"
                 size="icon"
                 className="size-8 text-muted-foreground hover:text-foreground"
@@ -140,6 +142,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <>
               {/* Botón rápido para abrir validador de clave */}
               <Button
+                data-tour="header-validator"
                 variant="outline"
                 size="sm"
                 onClick={onToggleValidator}
@@ -161,6 +164,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    data-tour="header-more"
                     variant="ghost"
                     size="icon"
                     className="size-8 text-muted-foreground hover:text-foreground"
@@ -205,7 +209,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       {/* Selector de Modo (Mobile First Tabs) */}
       <div className="mx-auto flex max-w-4xl border-t border-border/40 px-2 py-1.5 sm:px-4">
-        <div className="grid w-full grid-cols-2 gap-1.5 rounded-lg bg-secondary/40 p-1">
+        <div
+          data-tour="mode-tabs"
+          className="grid w-full grid-cols-2 gap-1.5 rounded-lg bg-secondary/40 p-1"
+        >
           {/* Modo Fácil */}
           <button
             type="button"
