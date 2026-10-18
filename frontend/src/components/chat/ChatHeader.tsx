@@ -11,7 +11,11 @@ import {
   CheckCircle2,
   Terminal,
   HelpCircle,
+  Volume2,
+  VolumeX,
+  MoreVertical,
 } from 'lucide-react';
+import { audioService } from '@/services/audioService';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +25,13 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface ChatHeaderProps {
   currentLevel: SecurityLevel;
@@ -42,8 +53,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenModeInfo,
 }) => {
   const [showResetDialog, setShowResetDialog] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(() => audioService.isMuted());
   const activeConfig = LEVEL_CONFIGS[currentLevel];
   const isLevel1 = currentLevel === 1;
+
+  React.useEffect(() => {
+    return audioService.subscribe((muted) => setIsMuted(muted));
+  }, []);
+
+  const handleToggleAudio = () => {
+    audioService.toggleMute();
+  };
 
   const handleConfirmReset = () => {
     onResetChat();
@@ -53,80 +73,133 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 w-full border-b border-border/80 bg-background/90 backdrop-blur-md transition-colors duration-300">
       {/* Barra superior de status y logo */}
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-2.5 sm:px-4">
+      <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-3 py-2 sm:px-4">
         {/* Brand & Terminal title */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <div
-            className={`flex size-8 shrink-0 items-center justify-center rounded-lg border font-mono font-bold transition-all ${
+            className={`flex size-7 shrink-0 items-center justify-center rounded-lg border font-mono font-bold transition-all sm:size-8 ${
               isLevel1
                 ? 'border-amber-500/50 bg-blue-950/70 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
                 : 'border-sky-500/50 bg-slate-900/80 text-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
             }`}
           >
-            <Terminal className="size-4" />
+            <Terminal className="size-3.5 sm:size-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-heading text-base font-bold tracking-wider text-foreground">
-                WIFI QUEST
-              </span>
-              <span className="rounded border border-primary/30 bg-secondary/80 px-1.5 py-0.2 text-[10px] font-mono text-primary font-semibold">
-                CTF v1.0
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
-              <span className="inline-block size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>SISTEMA ONLINE</span>
-            </div>
-          </div>
+          <span className="font-heading text-sm font-bold tracking-wider text-foreground whitespace-nowrap sm:text-base">
+            WIFI QUEST
+          </span>
         </div>
 
-        {/* Action buttons: Validador & Reinicio */}
+        {/* Acciones: en Modo Fácil van sueltas; en Modo Difícil se agrupan tras "Validar Clave" */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Botón rápido para abrir validador de clave */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleValidator}
-            className={`relative gap-1.5 font-mono text-xs transition-all ${
-              isValidatorOpen
-                ? 'border-amber-500 bg-secondary text-amber-400 ring-1 ring-amber-500/30'
-                : 'border-border/80 hover:bg-secondary/70 hover:text-amber-400'
-            }`}
-          >
-            <KeyRound className="size-3.5" data-icon="inline-start" />
-            <span className="hidden sm:inline">Validar Clave</span>
-            <span className="sm:hidden">Clave</span>
-            {solvedLevels[currentLevel] && (
-              <span className="flex size-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-            )}
-          </Button>
+          {isLevel1 ? (
+            <>
+              {/* Audio */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`size-8 transition-all ${
+                  !isMuted
+                    ? 'border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)] hover:bg-amber-500/20 hover:text-amber-300'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+                }`}
+                title={isMuted ? 'Activar sonido y música ambiental' : 'Silenciar sonido y música'}
+                onClick={handleToggleAudio}
+              >
+                {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4 text-amber-400" />}
+                <span className="sr-only">Control de Audio</span>
+              </Button>
 
-          {/* Botón para ver información y reglas de los modos */}
-          {onOpenModeInfo && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-muted-foreground hover:text-foreground"
-              title="Información y reglas de los modos"
-              onClick={onOpenModeInfo}
-            >
-              <HelpCircle className="size-4" />
-              <span className="sr-only">Ver información de modos</span>
-            </Button>
+              {/* Ayuda / reglas */}
+              {onOpenModeInfo && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  title="Información y reglas de los modos"
+                  onClick={onOpenModeInfo}
+                >
+                  <HelpCircle className="size-4" />
+                  <span className="sr-only">Ver información de modos</span>
+                </Button>
+              )}
+
+              {/* Reiniciar */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-foreground"
+                title="Reiniciar chat de este modo"
+                onClick={() => setShowResetDialog(true)}
+              >
+                <RotateCcw className="size-4" />
+                <span className="sr-only">Reiniciar conversación</span>
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Botón rápido para abrir validador de clave */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onToggleValidator}
+                className={`relative gap-1.5 font-mono text-xs transition-all ${
+                  isValidatorOpen
+                    ? 'border-amber-500 bg-secondary text-amber-400 ring-1 ring-amber-500/30'
+                    : 'border-border/80 hover:bg-secondary/70 hover:text-amber-400'
+                }`}
+              >
+                <KeyRound className="size-3.5" data-icon="inline-start" />
+                <span className="hidden sm:inline">Validar Clave</span>
+                <span className="sm:hidden">Clave</span>
+                {solvedLevels[currentLevel] && (
+                  <span className="flex size-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                )}
+              </Button>
+
+              {/* Menú agrupado de acciones */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-foreground"
+                    title="Más opciones"
+                  >
+                    <MoreVertical className="size-4" />
+                    <span className="sr-only">Más opciones</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleToggleAudio}>
+                    {isMuted ? (
+                      <VolumeX className="size-4" />
+                    ) : (
+                      <Volume2 className="size-4 text-amber-400" />
+                    )}
+                    <span>{isMuted ? 'Activar sonido' : 'Silenciar sonido'}</span>
+                  </DropdownMenuItem>
+
+                  {onOpenModeInfo && (
+                    <DropdownMenuItem onClick={onOpenModeInfo}>
+                      <HelpCircle className="size-4" />
+                      <span>Reglas y modos</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setShowResetDialog(true)}
+                  >
+                    <RotateCcw className="size-4" />
+                    <span>Reiniciar chat</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
-
-          {/* Botón de reiniciar chat */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8 text-muted-foreground hover:text-foreground"
-            title="Reiniciar chat de este modo"
-            onClick={() => setShowResetDialog(true)}
-          >
-            <RotateCcw className="size-4" />
-            <span className="sr-only">Reiniciar conversación</span>
-          </Button>
         </div>
       </div>
 
@@ -144,12 +217,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }`}
           >
             <Bot className="size-3.5 shrink-0" />
-            <span className="truncate">MODO FÁCIL</span>
+            <span className="whitespace-nowrap">Modo Fácil</span>
             {solvedLevels[1] ? (
               <CheckCircle2 className="size-3 shrink-0 text-amber-400" />
             ) : (
-              <Badge variant="outline" className="ml-0.5 border-amber-500/40 text-[9px] text-amber-400 px-1 py-0">
-                Lucas TI
+              <Badge variant="outline" className="ml-0.5 hidden border-amber-500/40 text-[9px] text-amber-400 px-1 py-0 sm:inline-flex">
+                Lucas
               </Badge>
             )}
           </button>
@@ -165,12 +238,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }`}
           >
             <ShieldAlert className="size-3.5 shrink-0" />
-            <span className="truncate">MODO DIFÍCIL</span>
+            <span className="whitespace-nowrap">Modo Difícil</span>
             {solvedLevels[2] ? (
               <CheckCircle2 className="size-3 shrink-0 text-sky-400" />
             ) : (
-              <Badge variant="outline" className="ml-0.5 border-sky-500/40 text-[9px] text-sky-400 px-1 py-0">
-                Firewall
+              <Badge variant="outline" className="ml-0.5 hidden border-sky-500/40 text-[9px] text-sky-400 px-1 py-0 sm:inline-flex">
+                Atenea
               </Badge>
             )}
           </button>

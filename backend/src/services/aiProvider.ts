@@ -85,10 +85,17 @@ export function resetRoundRobinCounter(): void {
   roundRobinCounter = 0;
 }
 
+/** Opciones de generación. Los defaults (0.6 / 350) preservan el comportamiento v1 y del Nivel 2. */
+export interface AIResponseOptions {
+  temperature?: number;
+  maxTokens?: number;
+}
+
 async function callProvider(
   provider: AIProviderConfig,
   systemPrompt: string,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  options?: AIResponseOptions
 ): Promise<string> {
   if (!provider.isEnabled()) {
     throw new Error(
@@ -97,6 +104,8 @@ async function callProvider(
   }
 
   const model = provider.getModel();
+  const temperature = options?.temperature ?? 0.6;
+  const maxTokens = options?.maxTokens ?? 350;
 
   // Cloudflare ai/run recibe el payload directamente con messages
   const payload = provider.isCloudflareRunApi
@@ -108,8 +117,8 @@ async function callProvider(
             content: m.content,
           })),
         ],
-        max_tokens: 350,
-        temperature: 0.6,
+        max_tokens: maxTokens,
+        temperature,
       }
     : {
         model,
@@ -120,8 +129,8 @@ async function callProvider(
             content: m.content,
           })),
         ],
-        temperature: 0.6,
-        max_tokens: 350,
+        temperature,
+        max_tokens: maxTokens,
       };
 
   const response = await fetch(provider.getUrl(), {
@@ -131,7 +140,7 @@ async function callProvider(
       ...provider.getHeaders(),
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(6500),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!response.ok) {
@@ -207,8 +216,26 @@ async function callProvider(
  */
 export async function generateAIResponse(
   systemPrompt: string,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  options?: AIResponseOptions
 ): Promise<AIProviderResult> {
+  // Logging visible en consola del prompt inyectado a cada llamada
+  console.log('\n╔══════════════════════════════════════════════════════════════════════════════╗');
+  console.log('║ 🤖 [LLM REQUEST] LLAMADA A LA IA                                            ║');
+  console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
+  console.log('📌 SYSTEM PROMPT INYECTADO:');
+  console.log(systemPrompt);
+  console.log('────────────────────────────────────────────────────────────────────────────────');
+  console.log('💬 MENSAJES ENVIADOS AL MODELO:');
+  if (!messages || messages.length === 0) {
+    console.log('  (Sin mensajes previos)');
+  } else {
+    messages.forEach((m, idx) => {
+      console.log(`  [${idx + 1}] ${m.role.toUpperCase()}: ${m.content}`);
+    });
+  }
+  console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
+
   const total = providers.length;
   const startIndex = Math.abs(roundRobinCounter) % total;
   roundRobinCounter = (roundRobinCounter + 1) % total;
@@ -229,7 +256,10 @@ export async function generateAIResponse(
     }
 
     try {
-      const reply = await callProvider(provider, systemPrompt, messages);
+      const rawReply = await callProvider(provider, systemPrompt, messages, options);
+      // Algunos modelos (Qwen) anteponen bloques de razonamiento <think>...</think>: se descartan.
+      const reply = rawReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      console.log(`✨ [LLM RESPONSE (${provider.name}:${provider.getModel()})]:\n${reply}\n`);
       return {
         reply,
         providerUsed: `${provider.name}:${provider.getModel()}`,

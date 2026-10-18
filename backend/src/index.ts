@@ -5,6 +5,7 @@ import { handle } from 'hono/aws-lambda';
 import { ChatRequestBody, VerifyRequestBody } from './types/index.js';
 import {
   processSecurityLevel,
+  sanitizeMessages,
   sanitizeAndSliceHistory,
 } from './services/securityLevels.js';
 import { getWifiPassword } from './utils/env.js';
@@ -126,7 +127,7 @@ app.post('/api/chat', async (c) => {
       );
     }
 
-    const { level, messages } = body;
+    const { level, messages, userTurnNumber, assemblyPieces, sessionSeed } = body;
 
     if (level !== 1 && level !== 2) {
       return c.json(
@@ -135,10 +136,10 @@ app.post('/api/chat', async (c) => {
       );
     }
 
-    // Sanitización, anti-role-spoofing y sliding window (últimos 6 mensajes)
-    let sanitizedMessages;
+    // 1. Sanitizar y validar el historial completo de mensajes
+    let fullSanitizedMessages;
     try {
-      sanitizedMessages = sanitizeAndSliceHistory(messages);
+      fullSanitizedMessages = sanitizeMessages(messages);
     } catch (validationErr: any) {
       return c.json(
         {
@@ -149,15 +150,38 @@ app.post('/api/chat', async (c) => {
       );
     }
 
-    // Calculamos el turno real del usuario a partir del historial completo (evita el límite de la ventana deslizante)
-    const totalUserTurns = Array.isArray(messages)
-      ? messages.filter((m) => m && m.role === 'user').length
-      : sanitizedMessages.filter((m) => m.role === 'user').length;
+    // 2. Calcular el turno real del usuario ANTES del slice(-6)
+    const computedTurnNumber =
+      typeof userTurnNumber === 'number'
+        ? userTurnNumber
+        : fullSanitizedMessages.filter((m) => m.role === 'user').length;
+
+    // 3. Aplicar sliding window para limitar el contexto del LLM a los últimos 6 mensajes
+    const slicedHistory = fullSanitizedMessages.slice(-6);
+
+    // 4. Nivel 2 exige el historial COMPLETO (ingeniería social multi-turno, Fase E1.5);
+    //    el Nivel 1 v2 conserva la ventana de 6 (recibe el historial completo aparte).
+    const messagesForEngine = level === 2 ? fullSanitizedMessages : slicedHistory;
+
+    const normalizedAssemblyPieces =
+      Array.isArray(assemblyPieces) && assemblyPieces.every((p) => typeof p === 'string')
+        ? (assemblyPieces as string[])
+        : undefined;
+
+    // Semilla por partida (Nivel 1): opaca, acotada y sin caracteres raros. Si no es
+    // válida se ignora y el motor usa su orden histórico.
+    const normalizedSessionSeed =
+      typeof sessionSeed === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(sessionSeed.trim())
+        ? sessionSeed.trim()
+        : undefined;
 
     const result = await processSecurityLevel(
       level,
-      sanitizedMessages,
-      totalUserTurns
+      messagesForEngine,
+      computedTurnNumber,
+      fullSanitizedMessages,
+      normalizedAssemblyPieces,
+      normalizedSessionSeed
     );
 
     return c.json(result, 200);

@@ -152,3 +152,87 @@ export function detectPasswordInReply(
 
   return false;
 }
+
+export type EncodedLeakFormat = 'base64' | 'hex' | 'rot13' | 'reversed' | 'spaced';
+
+/**
+ * Rotación César de 13 posiciones. Solo afecta letras A-Z / a-z (los números y
+ * símbolos se devuelven intactos).
+ */
+export function rot13(str: string): string {
+  if (!str) return '';
+  return str.replace(/[a-zA-Z]/g, (ch) => {
+    const base = ch <= 'Z' ? 65 : 97;
+    return String.fromCharCode(((ch.charCodeAt(0) - base + 13) % 26) + base);
+  });
+}
+
+/**
+ * detectEncodedLeak
+ * Comprueba si `reply` contiene la clave en una codificación reversible. NO es una
+ * victoria automática: solo señala que el modelo soltó la clave ofuscada (el usuario
+ * deberá decodificarla y escribirla). Devuelve el primer formato que coincida, en este
+ * orden: base64 → hex → rot13 → reversed → spaced.
+ *
+ * A diferencia de `detectPasswordInReply`, NO usa similitud difusa (Levenshtein) ni
+ * leet-speak: la coincidencia es estructural y determinista.
+ */
+export function detectEncodedLeak(
+  reply: string,
+  key: string
+): { detected: boolean; format: EncodedLeakFormat | null } {
+  const secret = (key || '').trim();
+  if (!reply || !secret) return { detected: false, format: null };
+
+  const replyLower = reply.toLowerCase();
+
+  // 1) Base64 (con y sin padding)
+  const b64Std = Buffer.from(secret, 'utf8').toString('base64');
+  const b64NoPad = b64Std.replace(/=+$/, '');
+  if (b64Std.length >= 4) {
+    if (reply.includes(b64Std) || replyLower.includes(b64Std.toLowerCase())) {
+      return { detected: true, format: 'base64' };
+    }
+    if (
+      b64NoPad.length >= 4 &&
+      (reply.includes(b64NoPad) || replyLower.includes(b64NoPad.toLowerCase()))
+    ) {
+      return { detected: true, format: 'base64' };
+    }
+  }
+
+  // 2) Hex (cada byte como "xx", insensible a mayúsculas)
+  const hex = Buffer.from(secret, 'utf8').toString('hex');
+  if (hex.length >= 4 && replyLower.includes(hex)) {
+    return { detected: true, format: 'hex' };
+  }
+
+  // 3) ROT13 (solo tiene efecto si la clave tiene letras)
+  const rotated = rot13(secret);
+  if (
+    rotated.toLowerCase() !== secret.toLowerCase() &&
+    replyLower.includes(rotated.toLowerCase())
+  ) {
+    return { detected: true, format: 'rot13' };
+  }
+
+  // 4) Invertida
+  const reversed = secret.split('').reverse().join('');
+  if (
+    reversed !== secret &&
+    (reply.includes(reversed) || replyLower.includes(reversed.toLowerCase()))
+  ) {
+    return { detected: true, format: 'reversed' };
+  }
+
+  // 5) Espaciada: la clave con separadores entre caracteres (h o l a, c_o_n_e_j_o…).
+  // Las coincidencias en texto plano o con espacios ya las captura la Condición A,
+  // así que aquí solo pueden colar separadores que `containsSecretPassword` no elimina
+  // (guiones, guiones bajos, puntos…).
+  const cleanSecret = normalizeText(secret);
+  if (cleanSecret.length >= 2 && normalizeText(reply).includes(cleanSecret)) {
+    return { detected: true, format: 'spaced' };
+  }
+
+  return { detected: false, format: null };
+}

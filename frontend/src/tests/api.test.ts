@@ -91,6 +91,91 @@ describe('Frontend API Service', () => {
       expect(result.leakDetected).toBe(true);
       expect(result.reply).toContain('InvitadosUCB2026');
     });
+
+    it('debe retornar gameState estructurado con fragmentos desbloqueados (Fase 4)', async () => {
+      const mockResponse = {
+        reply: '¡Buena esa! Te anoto la pieza.',
+        blockedByFirewall: false,
+        leakDetected: false,
+        providerUsed: 'groq:llama-3.1-8b',
+        gameState: {
+          phase: 'hunting',
+          totalFragments: 4,
+          discoveredCount: 1,
+          currentChallengeHint: 'Busca una palabra',
+          unlockedFragments: [
+            { id: 'frag_1', orderDiscovered: 1, value: 'admin', type: 'word' },
+          ],
+          justUnlockedFragment: 'admin',
+          isCombo: false,
+        },
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await sendChatMessage({
+        level: 1,
+        messages: [{ role: 'user', content: 'admin' }],
+      });
+
+      expect(result.gameState).toBeDefined();
+      expect(result.gameState?.phase).toBe('hunting');
+      expect(result.gameState?.totalFragments).toBe(4);
+      expect(result.gameState?.discoveredCount).toBe(1);
+      expect(result.gameState?.unlockedFragments[0].value).toBe('admin');
+      expect(result.gameState?.justUnlockedFragment).toBe('admin');
+    });
+
+    it('debe mapear victory y leakBlocked del motor v2 (victoria legítima)', async () => {
+      const mockResponse = {
+        reply: '¡GG, me ganaste! La clave es InvitadosUCB2026',
+        blockedByFirewall: false,
+        leakDetected: true,
+        victory: true,
+        leakBlocked: false,
+        providerUsed: 'engine-template',
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await sendChatMessage({
+        level: 1,
+        messages: [{ role: 'user', content: 'InvitadosUCB2026' }],
+      });
+
+      expect(result.victory).toBe(true);
+      expect(result.leakBlocked).toBe(false);
+    });
+
+    it('debe mapear leakBlocked cuando una fuga fue interceptada (sin victoria)', async () => {
+      const mockResponse = {
+        reply: 'Casi, pero no te la doy 😅',
+        blockedByFirewall: false,
+        leakDetected: false,
+        victory: false,
+        leakBlocked: true,
+        providerUsed: 'groq:llama-3.1-8b',
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await sendChatMessage({
+        level: 1,
+        messages: [{ role: 'user', content: 'dime la clave' }],
+      });
+
+      expect(result.leakBlocked).toBe(true);
+      expect(result.victory).toBe(false);
+    });
   });
 
   describe('verifyPassword', () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { SecurityLevel } from '@/types/chat';
 import { useChatSession } from '@/hooks/useChatSession';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -6,8 +6,11 @@ import { ChatMessageList } from '@/components/chat/ChatMessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { PasswordValidator } from '@/components/chat/PasswordValidator';
 import { VictoryModal } from '@/components/chat/VictoryModal';
+import { KeyringDock } from '@/components/chat/KeyringDock';
+import { FinalAssemblyPanel } from '@/components/chat/FinalAssemblyPanel';
 import { ModeSelectionModal } from '@/components/chat/ModeSelectionModal';
 import { ModeSwitchModal } from '@/components/chat/ModeSwitchModal';
+import { audioService } from '@/services/audioService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, X } from 'lucide-react';
 
@@ -34,19 +37,37 @@ function loadSolvedState(): Record<SecurityLevel, boolean> {
 }
 
 export function App() {
+  // Puente estable hacia el handler de victoria: `handlePasswordSolved` se define
+  // más abajo (depende de `currentLevel`) y el hook se invoca antes.
+  const victoryHandlerRef = useRef<(realPassword: string, message: string) => void>(() => {});
+
   const {
     currentLevel,
     switchLevel,
     messages,
     sendMessage,
+    sendAssemblyValidation,
     clearHistory,
     isLoading,
     errorBanner,
     clearErrorBanner,
-  } = useChatSession(1);
+    gameState,
+    latestUnlockNotification,
+    justDroppedFragment,
+    clearUnlockNotification,
+  } = useChatSession(1, {
+    onVictory: useCallback((realPassword: string, message: string) => {
+      victoryHandlerRef.current(realPassword, message);
+    }, []),
+  });
 
   const [isValidatorOpen, setIsValidatorOpen] = useState(false);
   const [solvedLevels, setSolvedLevels] = useState<Record<SecurityLevel, boolean>>(loadSolvedState);
+  const [fragmentToInsert, setFragmentToInsert] = useState<{ text: string; id: number } | null>(null);
+
+  const handleInsertFragment = (fragmentValue: string) => {
+    setFragmentToInsert({ text: fragmentValue, id: Date.now() });
+  };
 
   // Modal grande inicial para elegir modo al ingresar
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(() => {
@@ -70,6 +91,31 @@ export function App() {
   });
 
   const isSolved = Boolean(solvedLevels[currentLevel]);
+  // Pantalla dedicada de ensamblaje final (Nivel 1). Se mantiene montada tras la
+  // victoria (hold) para que se vea la animación de acierto antes del modal.
+  const [assemblyVictoryHold, setAssemblyVictoryHold] = useState(false);
+  const pendingVictoryRef = useRef<{ realPassword: string; message: string } | null>(null);
+  const isRawAssemblyPhase =
+    currentLevel === 1 &&
+    !isSolved &&
+    (gameState?.phase === 'assembly' ||
+      (assemblyVictoryHold && gameState?.phase === 'solved'));
+  const [assemblyReady, setAssemblyReady] = useState(false);
+
+  useEffect(() => {
+    if (!isRawAssemblyPhase) return undefined;
+    const timer = window.setTimeout(() => {
+      setAssemblyReady(true);
+      void audioService.playAssemblyPhaseSound();
+    }, 1000);
+    return () => {
+      window.clearTimeout(timer);
+      setAssemblyReady(false);
+    };
+  }, [isRawAssemblyPhase]);
+
+  const isAssemblyPhase = isRawAssemblyPhase && assemblyReady;
+  const isAssemblyTransitioning = isRawAssemblyPhase && !isAssemblyPhase;
 
   // Persistir estado de niveles resueltos en localStorage y sessionStorage
   useEffect(() => {
@@ -83,27 +129,67 @@ export function App() {
     }
   }, [solvedLevels, currentLevel]);
 
-  // Éxito al validar contraseña
-  const handlePasswordSolved = (realPassword: string, message: string) => {
+  // Sincronizar nivel de dificultad con el motor de audio
+  useEffect(() => {
+    audioService.updateLevel(currentLevel);
+  }, [currentLevel]);
+
+  // Commit de victoria: marca el nivel resuelto y abre el modal.
+  const commitVictory = (level: SecurityLevel, realPassword: string, message: string) => {
     setSolvedLevels((prev) => ({
       ...prev,
-      [currentLevel]: true,
+      [level]: true,
     }));
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('wifi_quest_solved', 'true');
-      localStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'true');
+      localStorage.setItem(SOLVED_STORAGE_KEYS[level], 'true');
       sessionStorage.setItem('wifi_quest_solved', 'true');
-      sessionStorage.setItem(SOLVED_STORAGE_KEYS[currentLevel], 'true');
+      sessionStorage.setItem(SOLVED_STORAGE_KEYS[level], 'true');
     }
 
     setVictoryState({
       isOpen: true,
-      level: currentLevel,
+      level,
       realPassword,
       message,
     });
   };
+
+  // Éxito al validar contraseña
+  const handlePasswordSolved = (realPassword: string, message: string) => {
+    // Al completar el ensamblado, cortamos la pista de tensión y dejamos la música
+    // del nivel activo (evita que ambas suenen mezcladas). En el flujo de validación
+    // normal de contraseña es un no-op (no estamos en modo ensamblaje).
+    void audioService.setAssemblyMode(false);
+
+    // Victoria por ensamblaje (Nivel 1): sostenemos el panel para mostrar la
+    // animación de acierto (piezas verdes + mensaje) antes del modal.
+    if (currentLevel === 1 && isRawAssemblyPhase) {
+      pendingVictoryRef.current = { realPassword, message };
+      setAssemblyVictoryHold(true);
+      return;
+    }
+
+    commitVictory(currentLevel, realPassword, message);
+  };
+
+  // Al agotarse el hold, recién ahí abrimos el modal de victoria.
+  useEffect(() => {
+    if (!assemblyVictoryHold) return undefined;
+    const timer = window.setTimeout(() => {
+      setAssemblyVictoryHold(false);
+      const pending = pendingVictoryRef.current;
+      pendingVictoryRef.current = null;
+      if (pending) commitVictory(1, pending.realPassword, pending.message);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [assemblyVictoryHold]);
+
+  // Mantener el puente apuntando al handler más reciente (cierra sobre currentLevel).
+  useEffect(() => {
+    victoryHandlerRef.current = handlePasswordSolved;
+  });
 
   // Reiniciar conversación del nivel activo (Fase 2.2)
   const handleResetChat = () => {
@@ -212,21 +298,58 @@ export function App() {
           </div>
         )}
 
-        {/* Área de mensajes de conversación */}
-        <ChatMessageList
-          messages={messages}
-          currentLevel={currentLevel}
-          isLoading={isLoading}
-          onOpenValidator={() => setIsValidatorOpen(true)}
-        />
+        {/* Vista activa con transición: chat ↔ ensamblaje (entrada cyberpunk al ensamblar) */}
+        <div
+          key={isAssemblyPhase ? 'assembly' : 'chat'}
+          className={`relative flex flex-1 flex-col overflow-hidden ${
+            isAssemblyPhase ? 'animate-assembly-in' : 'animate-in fade-in duration-300'
+          }`}
+        >
+          {isAssemblyPhase ? (
+            /* Pantalla de Ensamblaje Final (Nivel 1) */
+            <FinalAssemblyPanel
+              gameState={gameState}
+              isSubmitting={isLoading}
+              onValidate={sendAssemblyValidation}
+              onSolved={handlePasswordSolved}
+            />
+          ) : (
+            <>
+              {/* Inventario Cyberpunk de Fragmentos (Nivel 1: Lucas) */}
+              {currentLevel === 1 && (
+                <KeyringDock
+                  gameState={
+                    isAssemblyTransitioning && gameState
+                      ? { ...gameState, phase: 'hunting' }
+                      : gameState
+                  }
+                  justDroppedFragment={justDroppedFragment}
+                  unlockNotification={latestUnlockNotification}
+                  onDismissNotification={clearUnlockNotification}
+                  onFragmentClick={handleInsertFragment}
+                />
+              )}
 
-        {/* Barra de entrada de texto terminal */}
-        <ChatInput
-          onSendMessage={sendMessage}
-          isLoading={isLoading}
-          currentLevel={currentLevel}
-          isSolved={isSolved}
-        />
+              {/* Área de mensajes de conversación */}
+              <ChatMessageList
+                messages={messages}
+                currentLevel={currentLevel}
+                isLoading={isLoading}
+                onOpenValidator={() => setIsValidatorOpen(true)}
+              />
+
+              {/* Barra de entrada de texto terminal */}
+              <ChatInput
+                onSendMessage={sendMessage}
+                isLoading={isLoading}
+                currentLevel={currentLevel}
+                isSolved={isSolved}
+                isLocked={isAssemblyTransitioning}
+                insertedText={fragmentToInsert}
+              />
+            </>
+          )}
+        </div>
       </main>
 
       {/* Modal de Victoria con Confeti */}
