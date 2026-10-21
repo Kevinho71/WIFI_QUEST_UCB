@@ -1,0 +1,24 @@
+# Dependencias y builds (se regeneran dentro del contenedor)
+node_modules/
+**/node_modules/
+**/dist/
+**/build/
+**/.esbuild/
+**/.vitest/
+**/coverage/
+
+# Secretos y variables de entorno: NUNCA al contexto de build
+.env
+**/.env
+**/.env.*
+
+# Git y sistema
+.git/
+.gitignore
+.gitattributes
+
+# Herramientas locales y docs (no se necesitan en la imagen)
+.agents/
+deploy.ps1
+*.md
+*.log
