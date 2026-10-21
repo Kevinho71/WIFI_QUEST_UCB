@@ -1,12 +1,18 @@
 # =============================================================================
 # WIFI QUEST - Docker Compose (Dokploy)
 #
-# Dominios (se configuran en la pestaña "Domains" de Dokploy):
+# Dominios (routing por labels de Traefik, "Method 2" de Dokploy):
 #   Frontend -> https://k.alexa.tja.ucb.edu.bo   (puerto 80)
 #   Backend  -> https://k2.alexa.tja.ucb.edu.bo  (puerto 3000)
 #
-# Sin secretos ni valores hardcodeados: todo se lee del .env
-# (pestaña "Environment" de Dokploy).
+# Los servicios se cuelgan de la red externa `dokploy-network` (la red de
+# Traefik que crea Dokploy). Así NO se crea una red default por proyecto, lo
+# que evita el error "address pools have been fully subnetted".
+#
+# No configures estos dominios en la pestaña "Domains" de Dokploy: los labels
+# de acá ya hacen el routing (si los agregás por la UI se duplican los routers).
+#
+# Sin secretos hardcodeados: todo se lee del .env (pestaña "Environment").
 # =============================================================================
 
 services:
@@ -40,6 +46,15 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wifi-quest-backend.rule=Host(`k2.alexa.tja.ucb.edu.bo`)
+      - traefik.http.routers.wifi-quest-backend.entrypoints=websecure
+      - traefik.http.routers.wifi-quest-backend.tls=true
+      - traefik.http.routers.wifi-quest-backend.tls.certresolver=letsencrypt
+      - traefik.http.services.wifi-quest-backend.loadbalancer.server.port=3000
 
   # ── Frontend (Vite/React servido por nginx) ─────────────────────────────────
   frontend:
@@ -59,3 +74,16 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wifi-quest-frontend.rule=Host(`k.alexa.tja.ucb.edu.bo`)
+      - traefik.http.routers.wifi-quest-frontend.entrypoints=websecure
+      - traefik.http.routers.wifi-quest-frontend.tls=true
+      - traefik.http.routers.wifi-quest-frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.wifi-quest-frontend.loadbalancer.server.port=80
+
+networks:
+  dokploy-network:
+    external: true
