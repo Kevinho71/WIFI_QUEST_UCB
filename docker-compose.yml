@@ -9,13 +9,9 @@
 # (o desde la pestaña "Environment" de Dokploy, que escribe ese .env).
 # Copiá .env.example a .env y completá los valores reales.
 #
-# Routing con Traefik (configuración manual, "Method 2" de la doc de Dokploy):
-#   - Red compartida: dokploy-network (external)
-#   - Entrypoint HTTPS: websecure
-#   - Certificados: letsencrypt
-# Si preferís, podés borrar los bloques `labels` y `networks` y configurar los
-# dominios desde la pestaña "Domains" de Dokploy (recomendado por Dokploy,
-# inyecta los labels y la red por vos).
+# Routing con Traefik: se configura desde la pestaña "Domains" de Dokploy
+# (Method 1, el recomendado por Dokploy). Dokploy inyecta los labels y la red
+# `dokploy-network` automáticamente; no hace falta declararlos en este archivo.
 # =============================================================================
 
 services:
@@ -49,15 +45,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.wifi-quest-backend.rule=Host(`k2.alexa.tja.ucb.edu.bo`)
-      - traefik.http.routers.wifi-quest-backend.entrypoints=websecure
-      - traefik.http.routers.wifi-quest-backend.tls=true
-      - traefik.http.routers.wifi-quest-backend.tls.certresolver=letsencrypt
-      - traefik.http.services.wifi-quest-backend.loadbalancer.server.port=3000
-    networks:
-      - dokploy-network
 
   frontend:
     build:
@@ -75,16 +62,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.wifi-quest-frontend.rule=Host(`k.alexa.tja.ucb.edu.bo`)
-      - traefik.http.routers.wifi-quest-frontend.entrypoints=websecure
-      - traefik.http.routers.wifi-quest-frontend.tls=true
-      - traefik.http.routers.wifi-quest-frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.wifi-quest-frontend.loadbalancer.server.port=80
-    networks:
-      - dokploy-network
-
-networks:
-  dokploy-network:
-    external: true
