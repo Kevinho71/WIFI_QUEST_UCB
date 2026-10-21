@@ -1,42 +1,37 @@
 # =============================================================================
-# WIFI QUEST - Docker Compose global (despliegue en Dokploy)
+# WIFI QUEST - Docker Compose (Dokploy)
 #
-# Dominios:
-#   Frontend -> https://k.alexa.tja.ucb.edu.bo
-#   Backend  -> https://k2.alexa.tja.ucb.edu.bo
+# Dominios (se configuran en la pestaña "Domains" de Dokploy):
+#   Frontend -> https://k.alexa.tja.ucb.edu.bo   (puerto 80)
+#   Backend  -> https://k2.alexa.tja.ucb.edu.bo  (puerto 3000)
 #
-# No hay secretos hardcodeados: las variables se leen desde el archivo .env
-# (o desde la pestaña "Environment" de Dokploy, que escribe ese .env).
-# Copiá .env.example a .env y completá los valores reales.
-#
-# Routing con Traefik: se configura desde la pestaña "Domains" de Dokploy
-# (Method 1, el recomendado por Dokploy). Dokploy inyecta los labels y la red
-# `dokploy-network` automáticamente; no hace falta declararlos en este archivo.
+# Sin secretos ni valores hardcodeados: todo se lee del .env
+# (pestaña "Environment" de Dokploy).
 # =============================================================================
 
 services:
+
+  # ── Backend (Hono + motor Nivel 1/2) ────────────────────────────────────────
   backend:
     build:
+      # Monorepo npm workspaces: el build necesita el package.json de la raíz.
       context: .
       dockerfile: backend/Dockerfile
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: "3000"
-      # Origen permitido para CORS (el frontend)
-      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-https://k.alexa.tja.ucb.edu.bo}
-      # Contraseña WiFi (obligatoria para /api/verify). Sin valor por defecto.
-      WIFI_PASS: ${WIFI_PASS:?WIFI_PASS es obligatoria. Definila en .env o en Dokploy.}
-      LEVEL1_ENGINE: ${LEVEL1_ENGINE:-v2}
-      REVEAL_WORD_TO_MODEL: ${REVEAL_WORD_TO_MODEL:-true}
-      # Proveedores de IA (opcionales: si una key queda vacía se salta el proveedor)
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-}
-      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
-      CF_API_KEY: ${CF_API_KEY:-}
-      CF_MODEL: ${CF_MODEL:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-}
-    restart: unless-stopped
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN}
+      WIFI_PASS: ${WIFI_PASS}
+      LEVEL1_ENGINE: ${LEVEL1_ENGINE}
+      REVEAL_WORD_TO_MODEL: ${REVEAL_WORD_TO_MODEL}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL}
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
+      CF_API_KEY: ${CF_API_KEY}
+      CF_MODEL: ${CF_MODEL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
     expose:
       - "3000"
     healthcheck:
@@ -46,14 +41,16 @@ services:
       retries: 3
       start_period: 10s
 
+  # ── Frontend (Vite/React servido por nginx) ─────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        # URL pública del backend que el frontend usa para /api (build-time)
-        VITE_API_URL: ${VITE_API_URL:-https://k2.alexa.tja.ucb.edu.bo}
+        VITE_API_URL: ${VITE_API_URL}
     restart: unless-stopped
+    depends_on:
+      - backend
     expose:
       - "80"
     healthcheck:
