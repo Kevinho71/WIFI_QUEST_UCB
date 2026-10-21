@@ -59,6 +59,7 @@ Backend usa `module: NodeNext`: los imports relativos llevan extensión `.js` au
 - Alias `@/*` → `src/*` y `cn` → `src/lib/utils.ts` (en `vite.config.ts` y `tsconfig.app.json`).
 - **Tests en node sin jsdom**: usan `renderToStaticMarkup` (SSR). Vitest toma `vite.config.ts`, por eso resuelven `@`/`cn`.
 - **El progreso vive solo en memoria**: no se persisten mensajes, nivel, seed, gameState ni timer. Al refrescar o salir se reinicia la partida; `clearLegacyGameStorage()` (en `main.tsx`) borra las claves viejas y conserva `wifi_quest_muted` (preferencia de audio). `clearHistory`/`switchLevel` regeneran la seed y resetean mensajes en memoria.
+- Onboarding: `components/onboarding/OnboardingTour.tsx` + `config/onboarding.ts`; cada paso se ancla con `data-tour="..."` en el componente objetivo. Si movés o renombrás un elemento, actualizá el target del paso.
 
 ## Deploy y repo
 
