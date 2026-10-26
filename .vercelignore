@@ -1,0 +1,19 @@
+# Secretos locales: no subir .env a Vercel (usar Environment Variables)
+.env
+.env.*
+backend/.env
+frontend/.env
+frontend/.env.production
+
+# Artefactos locales que Vercel reconstruye
+node_modules
+dist
+backend/dist
+frontend/dist
+coverage
+function.zip
+*.zip
+deploy.ps1
+
+# Skills locales
+.agents/

@@ -19,7 +19,7 @@ RUN npm ci
 
 # Código del backend y compilación (esbuild -> dist/index.mjs)
 COPY backend ./backend
-RUN npm --workspace=backend run build
+RUN npm --workspace=backend run build:node
 
 # ---------- Etapa de runtime ----------
 FROM node:20-alpine AS runtime

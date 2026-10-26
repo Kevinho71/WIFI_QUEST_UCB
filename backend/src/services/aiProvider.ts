@@ -1,15 +1,4 @@
-import 'dotenv/config';
 import { ChatMessage, AIProviderResult } from '../types/index.js';
-
-// Cargar variables de entorno desde .env local o monorepo
-if (typeof process.loadEnvFile === 'function') {
-  try {
-    process.loadEnvFile('.env');
-  } catch {}
-  try {
-    process.loadEnvFile('backend/.env');
-  } catch {}
-}
 
 export interface AIProviderConfig {
   name: string;

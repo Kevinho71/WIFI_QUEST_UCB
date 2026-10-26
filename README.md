@@ -5,9 +5,11 @@
 ---
 
 ### 🌐 Juega en Línea
-Accede directamente a la plataforma desplegada:
+Demo desplegada en Vercel:
 
-👉 **[http://wifi-quest-frontend-814023476132.s3-website.us-east-2.amazonaws.com/](http://wifi-quest-frontend-814023476132.s3-website.us-east-2.amazonaws.com/)**
+👉 **[https://TU-PROYECTO.vercel.app](https://TU-PROYECTO.vercel.app)**
+
+> Reemplazá `TU-PROYECTO` por el dominio real después del primer deploy.
 
 ---
 
@@ -44,7 +46,7 @@ El juego ofrece dos experiencias independientes adaptadas a diferentes niveles d
 
 ## 🏗️ Arquitectura del Monorepo
 
-El proyecto está diseñado como un **Monorepo Stateless** optimizado para AWS Free Tier (AWS Lambda + S3):
+El proyecto está diseñado como un **Monorepo Stateless** desplegado en Vercel con Services (Vite + Hono en un solo dominio):
 
 ```text
 WIFI_QUEST/
@@ -57,7 +59,8 @@ WIFI_QUEST/
 │   │   │   └── leakDetector.ts    # Detección de fugas en respuestas
 │   │   ├── types/
 │   │   │   └── index.ts           # Tipos TypeScript
-│   │   └── index.ts               # Router Hono, Rate Limiting y AWS Lambda Handler
+│   │   ├── index.ts               # App Hono portable (default export para Vercel)
+│   │   └── dev.ts                 # Servidor local Node (@hono/node-server)
 │   ├── tests/                     # Pruebas unitarias con Vitest
 │   ├── .env                       # Variables de entorno para desarrollo local
 │   ├── tsconfig.json              # Configuración TypeScript (NodeNext)
@@ -70,8 +73,8 @@ WIFI_QUEST/
 │   ├── .env                       # Variables de entorno locales (VITE_API_URL)
 │   └── package.json
 │
-├── deploy.ps1               # Script de despliegue a AWS (Lambda + S3 + CloudFront)
-├── .env                     # Variables de entorno de producción
+├── vercel.json              # Services: frontend + backend en un solo dominio
+├── .env                     # Variables locales (Vercel usa el dashboard)
 ├── package.json             # Root npm workspaces
 └── README.md
 ```
@@ -108,10 +111,10 @@ El proyecto gestiona variables en tres archivos `.env` independientes según el 
 
 | Archivo | Ámbito y Propósito |
 |---|---|
-| `.env` (raíz) | Variables para producción / empaquetado de AWS Lambda. |
+| `.env` (raíz) | Variables locales/legado. Vercel no lo lee: usá Environment Variables del proyecto. |
 | `backend/.env` | Variables para el desarrollo local del backend (`npm run dev:back`). |
 | `frontend/.env` | Variables para el frontend en desarrollo local (`npm run dev:front`). |
-| `frontend/.env.production` | URL de la API en producción (AWS Lambda Function URL) para el build. |
+| `frontend/.env.production` | `VITE_API_URL=/` para que el build de producción llame al mismo dominio. |
 
 #### Tabla Completa de Variables de Entorno
 
@@ -191,18 +194,43 @@ Desde la raíz del monorepo:
 | `npm run dev:front` | Inicia el frontend en `http://localhost:5173` (Vite dev server) |
 | `npm run test:back` | Ejecuta las pruebas unitarias del backend con Vitest |
 | `npm run test:front` | Ejecuta las pruebas del frontend |
-| `npm run build:back` | Compila el backend para AWS Lambda (`backend/dist/index.mjs`) |
+| `npm run build:back` | Compila el backend Node autocontenido (`backend/dist/index.mjs`) |
 | `npm run build:front` | Compila el frontend para producción (`frontend/dist`) |
 
 ---
 
-## ☁️ Despliegue en AWS
+## ☁️ Despliegue en Vercel
 
-El proyecto está preparado para ejecutarse bajo el **AWS Free Tier**:
-- **Backend:** AWS Lambda con Function URL habilitada (Stateless, compresión gzip, CORS configurado).
-- **Frontend:** Bucket S3 configurado como Static Website Hosting (o CloudFront CDN).
+El proyecto se despliega como **un solo proyecto de Vercel con Services**:
 
-Para desplegar automáticamente con PowerShell (requiere AWS CLI configurado):
-```powershell
-.\deploy.ps1 -BucketName "tu-bucket-s3" -LambdaName "wifi-quest-api" -DistributionId "TU_DIST_ID_OPCIONAL"
+- `/api/*` → `backend` (Hono).
+- `/*` → `frontend` (Vite).
+- Un único dominio; no hay CORS entre frontend y API.
+- La configuración vive en `vercel.json`.
+
+### Variables de entorno en Vercel
+
+En **Project Settings → Environment Variables**:
+
+| Variable | Servicio | Valor |
+|---|---|---|
+| `WIFI_PASS` | backend | contraseña del CTF, **sin las comillas simples** del `.env` |
+| `GROQ_API_KEY` | backend | API key de Groq |
+| `GEMINI_API_KEY` | backend | API key de Gemini |
+| `CF_ACCOUNT_ID` | backend | Account ID de Cloudflare |
+| `CF_API_KEY` | backend | API token de Workers AI |
+| `GROQ_MODEL`, `CF_MODEL`, `GEMINI_MODEL` | backend | modelos |
+| `LEVEL1_ENGINE` | backend | `v2` |
+| `REVEAL_WORD_TO_MODEL` | backend | `true` |
+| `ALLOWED_ORIGIN` | backend | `*` |
+| `VITE_API_URL` | frontend | `/` |
+
+### Deploy
+
+```bash
+npm install -g vercel
+vercel login
+vercel --prod
 ```
+
+O conectá el repositorio en el dashboard de Vercel y hacé push a `main`.

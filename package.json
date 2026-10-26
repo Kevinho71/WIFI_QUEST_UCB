@@ -9,7 +9,7 @@
   "scripts": {
     "dev:back": "npm --workspace=backend run dev",
     "dev:front": "npm --workspace=frontend run dev",
-    "build:back": "npm --workspace=backend run build",
+    "build:back": "npm --workspace=backend run build:node",
     "build:front": "npm --workspace=frontend run build",
     "test:back": "npm --workspace=backend run test",
     "test:front": "npm --workspace=frontend run test"

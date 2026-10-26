@@ -1,7 +1,5 @@
-import 'dotenv/config';
 import { Hono, Context, Next } from 'hono';
 import { cors } from 'hono/cors';
-import { handle } from 'hono/aws-lambda';
 import { ChatRequestBody, VerifyRequestBody } from './types/index.js';
 import {
   processSecurityLevel,
@@ -44,37 +42,32 @@ const RATE_LIMIT_MAX = 15;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 function getClientIp(c: Context): string {
-  const forwardedFor = c.req.header('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
+  // En Vercel, x-real-ip lo setea la plataforma; x-forwarded-for puede venir
+  // contaminado por el cliente, así que se usa como fallback.
   const realIp = c.req.header('x-real-ip');
   if (realIp) return realIp.trim();
 
-  const lambdaEvent = (c.env as any)?.event;
-  if (lambdaEvent?.requestContext?.http?.sourceIp) {
-    return lambdaEvent.requestContext.http.sourceIp;
-  }
-  if (lambdaEvent?.requestContext?.identity?.sourceIp) {
-    return lambdaEvent.requestContext.identity.sourceIp;
+  const forwardedFor = c.req.header('x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim();
   }
 
   return '127.0.0.1';
 }
 
-// Limpieza periódica de IPs antiguas para evitar fugas de memoria
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of rateLimitMap.entries()) {
-    if (now > entry.resetTime) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}, 5 * 60 * 1000).unref();
-
 app.use('/api/*', async (c: Context, next: Next) => {
   const ip = getClientIp(c);
   const now = Date.now();
+
+  // Limpieza perezosa: en serverless no hay timers globales confiables.
+  if (rateLimitMap.size > 5_000) {
+    for (const [key, value] of rateLimitMap.entries()) {
+      if (now > value.resetTime) {
+        rateLimitMap.delete(key);
+      }
+    }
+  }
+
   let entry = rateLimitMap.get(ip);
 
   if (!entry || now > entry.resetTime) {
@@ -276,30 +269,8 @@ app.post('/api/verify', async (c) => {
 });
 
 // ==========================================
-// 6. EXPORT PARA AWS LAMBDA
+// 6. EXPORT PORTABLE
+// Vercel (preset Hono) consume este default export.
+// El servidor local vive en dev.ts.
 // ==========================================
-export const handler = handle(app);
-
-// ==========================================
-// 7. INICIALIZACIÓN LOCAL
-// Solo se activa fuera de AWS Lambda y fuera del entorno de pruebas
-// ==========================================
-if (
-  !process.env.AWS_LAMBDA_FUNCTION_NAME &&
-  !process.env.LAMBDA_TASK_ROOT &&
-  process.env.NODE_ENV !== 'test' &&
-  !process.env.VITEST
-) {
-  const port = Number(process.env.PORT) || 3000;
-  import('@hono/node-server')
-    .then(({ serve }) => {
-      console.log(`📡 [WIFI QUEST] Servidor local activo en http://localhost:${port}`);
-      serve({
-        fetch: app.fetch,
-        port,
-      });
-    })
-    .catch((err) => {
-      console.error('Error al inicializar @hono/node-server:', err);
-    });
-}
+export default app;
